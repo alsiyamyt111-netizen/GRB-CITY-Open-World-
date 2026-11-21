@@ -179,14 +179,14 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
           if (rnd() < 0.2) { treePts.push([x, z, 1]); continue; }
           // GLB house (falls back to the old box house if the model is missing). Assumes model front faces +Z.
           const face = j === lots - 1 ? 0 : j === 0 ? Math.PI : i === 0 ? -Math.PI / 2 : Math.PI / 2;
-          if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 0.8 })) { if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
+          const cb = colliders.length; if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 0.8 })) { colliders.length = cb; colliders.push({ minX: x - lw * 0.3, maxX: x + lw * 0.3, minZ: z - lw * 0.3, maxZ: z + lw * 0.3, h: 8 }); if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
           const h = 5 + rnd() * 4; const m = addBuilding(x, z, lw * 0.7, lw * 0.6, h, facadeMats[[1, 3, 4][Math.floor(rnd() * 3)]], grp);
           const roof = new THREE.Mesh(new THREE.ConeGeometry(lw * 0.55, 3, 4), solid(['#8d3b2b', '#5a3d2b', '#444'][Math.floor(rnd() * 3)])); roof.rotation.y = Math.PI / 4; roof.position.set(x, m.userData.h + 1.7, z); roof.castShadow = true; grp.add(roof);
           if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]);
         } else {
           const h = downtown ? 30 + rnd() * 70 : 12 + rnd() * 28;
           const towers = ['office', 'skyline'].filter(k => lib?.has(k));
-          if (towers.length && placeBuilding(ctx, grp, towers[Math.floor(rnd() * towers.length)], x, z, Math.floor(rnd() * 4) * Math.PI / 2, { h, maxW: lw * 0.85 })) continue;
+          const cbt = colliders.length; if (towers.length && placeBuilding(ctx, grp, towers[Math.floor(rnd() * towers.length)], x, z, Math.floor(rnd() * 4) * Math.PI / 2, { h, maxW: lw * 0.85 })) { colliders.length = cbt; colliders.push({ minX: x - lw * 0.3, maxX: x + lw * 0.3, minZ: z - lw * 0.3, maxZ: z + lw * 0.3, h }); continue; }
           const mat = facadeMats[Math.floor(rnd() * 6)];
           addBuilding(x, z, lw * (0.7 + rnd() * 0.2), lw * (0.7 + rnd() * 0.2), h, mat, grp);
           if (downtown && rnd() < 0.5) addBuilding(x, z, lw * 0.4, lw * 0.4, h + 10 + rnd() * 20, mat, grp);
