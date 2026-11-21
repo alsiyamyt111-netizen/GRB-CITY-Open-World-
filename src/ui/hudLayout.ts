@@ -25,7 +25,7 @@ export const HUD_DEFS: HudDef[] = [
   { id: 'grenade', label: 'Quick Grenade', mode: 'foot', x: 0.775, y: 0.7, w: 58, h: 58 },
   { id: 'jump', label: 'Jump', mode: 'foot', x: 0.82, y: 0.89, w: 76, h: 76 },
   { id: 'vehicle', label: 'Vehicle', mode: 'foot', x: 0.365, y: 0.925, w: 64, h: 78 },
-  { id: 'run', label: 'Run', mode: 'foot', x: 0.435, y: 0.925, w: 64, h: 78 },
+  { id: 'run', label: 'Run', mode: 'foot', x: 0.115, y: 0.6, w: 64, h: 78 }, // just above the joystick
   { id: 'crouch', label: 'Crouch', mode: 'foot', x: 0.505, y: 0.925, w: 64, h: 78 },
   { id: 'lie', label: 'Lie Down', mode: 'foot', x: 0.575, y: 0.925, w: 64, h: 78 },
   { id: 'medkit', label: 'Medkit', mode: 'foot', x: 0.04, y: 0.57, w: 50, h: 50 },
