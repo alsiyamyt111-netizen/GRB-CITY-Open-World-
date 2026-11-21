@@ -18,7 +18,7 @@ export interface HudCtx {
   openOverlay: (o: OverlayName) => void; useMedkit: () => void; useEnergy: () => void;
 }
 
-export const MOCK_HUD: HudState = { mode: 'walk', health: 82, stamina: 64, speed: 64, vehicleName: 'Civic Line', damage: 12, lights: false, time: 14.5, weather: 'clear', zone: 'Downtown', prompt: '', mission: { name: 'City Tour', step: 1, total: 3, dist: 240 }, fps: 60, crouch: false, camMode: 0, money: 24875, weapon: 'rifle' };
+export const MOCK_HUD: HudState = { mode: 'walk', health: 82, stamina: 64, speed: 64, vehicleName: 'Civic Line', damage: 12, lights: false, time: 14.5, weather: 'clear', zone: 'Downtown', prompt: '', mission: { name: 'City Tour', step: 1, total: 3, dist: 240 }, fps: 60, crouch: false, camMode: 0, money: 24875, weapon: 'rifle', run: false };
 
 const noop = () => { };
 export function mockCtx(profile: Profile, mini: RefObject<HTMLCanvasElement | null>): HudCtx {
