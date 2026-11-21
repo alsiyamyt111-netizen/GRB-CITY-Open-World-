@@ -5,6 +5,7 @@ import { CHARACTERS, VEHICLES, MISSIONS, SHOP_ITEMS, SPECIAL_BLOCKS, BLOCK, N, H
 import { getLook, resetSave, newProfile, type Profile, type Preset } from '../game/store';
 import { audio } from '../game/audio';
 import type { Game } from '../game/engine';
+import { HudEditor } from './HudEditor';
 
 export type Screen = 'splash' | 'loading' | 'menu' | 'lobby' | 'character' | 'customize' | 'garage' | 'vehicles' | 'missions' | 'map' | 'settings' | 'shop' | 'game';
 export interface SP { profile: Profile; update: (fn: (p: Profile) => void) => void; go: (s: Screen) => void; back: () => void; toast: (t: string) => void }
@@ -237,7 +238,7 @@ export function MapScreen({ profile, back, game }: SP & { game?: Game | null }) 
 export function SettingsScreen({ profile, update, back, toast }: SP) {
   const s = profile.settings; const set = (k: keyof typeof s, v: any) => update(p => { (p.settings as any)[k] = v; });
   const Slider = ({ l, k, min, max, step }: { l: string; k: 'sfx' | 'ambient' | 'sensitivity' | 'dayLength'; min: number; max: number; step: number }) => (<div className="mb-4"><div className="flex justify-between text-white text-sm mb-1"><span>{l}</span><span className="text-[#ffd400]">{k === 'dayLength' ? `${s[k]} min` : Math.round((s[k] as number) * 100) + '%'}</span></div><input type="range" min={min} max={max} step={step} value={s[k] as number} onChange={e => set(k, +e.target.value)} className="w-full accent-yellow-400" /></div>);
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState(false); const [editHud, setEditHud] = useState(false);
   return (
     <div className="absolute inset-0 z-40"><Bg dim={0.7} />
       <TopBar profile={profile} onBack={back} title="Settings" />
@@ -253,9 +254,13 @@ export function SettingsScreen({ profile, update, back, toast }: SP) {
           <h3 className="text-[#3da5ff] font-bold mb-3">SOUND & CONTROLS</h3>
           <Slider l="Sound effects" k="sfx" min={0} max={1} step={0.05} /><Slider l="Ambient (rain/wind)" k="ambient" min={0} max={1} step={0.05} /><Slider l="Camera sensitivity" k="sensitivity" min={0.3} max={2.5} step={0.1} />
           <label className="flex items-center justify-between text-white text-sm mb-4">Vibration<input type="checkbox" checked={s.vibrate} onChange={e => set('vibrate', e.target.checked)} className="w-5 h-5 accent-yellow-400" /></label>
+          <h3 className="text-[#3da5ff] font-bold mb-2 mt-1">HUD</h3>
+          <p className="text-white/50 text-xs mb-2">Drag, resize, hide or show every button and panel. Separate On-Foot and Driving layouts.</p>
+          <div className="grid grid-cols-2 gap-2 mb-4"><Btn variant="yellow" onClick={() => setEditHud(true)}>✋ Edit HUD Layout</Btn><Btn onClick={() => { update(p => { p.settings.hud = {}; }); toast('HUD layout reset'); }}>Reset HUD</Btn></div>
           <Btn variant="red" className="w-full" onClick={() => setConfirm(true)}>Reset Save Data</Btn>
         </Panel>
       </div>
+      {editHud && <HudEditor profile={profile} onClose={() => setEditHud(false)} onCommit={over => update(p => { p.settings.hud = over; })} />}
       {confirm && <Confirm text="Delete all progress?" onNo={() => setConfirm(false)} onYes={() => { resetSave(); const n = newProfile(); update(p => Object.assign(p, n)); setConfirm(false); toast('Save data reset'); }} />}
     </div>
   );
