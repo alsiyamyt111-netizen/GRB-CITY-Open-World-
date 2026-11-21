@@ -185,30 +185,50 @@ const BONE_PREFIX = /^mixamorig\d*:?/;
 const boneSuffix = (name: string) => name.replace(BONE_PREFIX, '');
 
 /** Rewrites an FBX AnimationClip's track node-names to match the bone names actually
- *  present on targetRoot, so one Mixamo animation clip can drive any Mixamo character. */
-function retargetClip(clip: THREE.AnimationClip, targetRoot: THREE.Object3D): THREE.AnimationClip {
-  const byBone = new Map<string, string>();
-  targetRoot.traverse(o => { if (o.name) byBone.set(boneSuffix(o.name), o.name); });
+ *  present on targetRoot, so one Mixamo animation clip can drive any Mixamo character.
+ *  Also fixes the two Hips-position problems found in the shipped clips:
+ *  1) units: jump.fbx stores Hips translation ~10x smaller than Run/Walk/Idle (rest Y 10 vs 104), which sank the
+ *     character into the ground. Hips position is rescaled by (target hips rest Y / clip hips rest Y).
+ *  2) root motion: Run/Walk/Jump move the Hips forward (Run ~3.7 m per 0.63 s loop) and then snap back at the loop point,
+ *     which looked like running, getting stuck, jumping backwards and running again. The linear forward/side drift is
+ *     removed so the clip plays in place (the game moves the character itself). */
+function retargetClip(clip: THREE.AnimationClip, targetRoot: THREE.Object3D, srcHipsRestY = 0): THREE.AnimationClip {
+  const byBone = new Map<string, string>(); const found: { hips?: THREE.Object3D } = {};
+  targetRoot.traverse(o => { if (!o.name) return; const b = boneSuffix(o.name); byBone.set(b, o.name); if (b === 'Hips' && !found.hips) found.hips = o; });
+  const k = found.hips && srcHipsRestY > 1e-4 && found.hips.position.y > 1e-4 ? found.hips.position.y / srcHipsRestY : 1;
   const tracks: THREE.KeyframeTrack[] = [];
   for (const t of clip.tracks) {
     const dot = t.name.lastIndexOf('.');
     if (dot < 0) continue;
-    const mapped = byBone.get(boneSuffix(t.name.slice(0, dot)));
+    const bone = boneSuffix(t.name.slice(0, dot));
+    const mapped = byBone.get(bone);
     if (!mapped) continue; // bone not present on this rig (e.g. extra finger joints) — skip
-    const nt = t.clone(); nt.name = mapped + t.name.slice(dot); tracks.push(nt);
+    const nt = t.clone(); nt.name = mapped + t.name.slice(dot);
+    if (bone === 'Hips' && t.name.slice(dot) === '.position') {
+      const v = nt.values as unknown as Float32Array, times = nt.times, n = times.length;
+      for (let i = 0; i < v.length; i++) v[i] *= k;
+      const T = (times[n - 1] - times[0]) || 1;
+      for (const axis of [0, 2]) { // X and Z: remove the linear travel, keep the natural sway/bounce
+        const first = v[axis], drift = v[(n - 1) * 3 + axis] - first;
+        for (let i = 0; i < n; i++) v[i * 3 + axis] -= drift * ((times[i] - times[0]) / T);
+      }
+    }
+    tracks.push(nt);
   }
   return new THREE.AnimationClip(clip.name, clip.duration, tracks);
 }
 
 const fbxLoader = new FBXLoader();
-const fbxCache = new Map<string, Promise<THREE.AnimationClip>>();
-function loadFBXAnim(url: string): Promise<THREE.AnimationClip> {
+interface LoadedAnim { clip: THREE.AnimationClip; hipsRestY: number }
+const fbxCache = new Map<string, Promise<LoadedAnim>>();
+function loadFBXAnim(url: string): Promise<LoadedAnim> {
   let p = fbxCache.get(url);
   if (!p) {
     p = new Promise((res, rej) => fbxLoader.load(url, obj => {
       const clip = obj.animations[0];
       if (!clip) { rej(new Error('no animation in ' + url)); return; }
-      res(clip);
+      let hipsRestY = 0; obj.traverse(o => { if (!hipsRestY && o.name && boneSuffix(o.name) === 'Hips') hipsRestY = o.position.y; });
+      res({ clip, hipsRestY });
     }, undefined, rej));
     fbxCache.set(url, p);
   }
@@ -241,7 +261,8 @@ export async function loadCharacter(modelUrl: string, animUrls: Record<string, s
   const actions: Record<string, THREE.AnimationAction> = {};
   await Promise.all(Object.entries(animUrls).map(async ([name, url]) => {
     try {
-      const clip = retargetClip(await loadFBXAnim(url), scene);
+      const la = await loadFBXAnim(url);
+      const clip = retargetClip(la.clip, scene, la.hipsRestY);
       if (clip.tracks.length) actions[name] = mixer.clipAction(clip);
     } catch (e) { console.warn('[character] animation failed to load:', name, e); }
   }));
