@@ -15,6 +15,7 @@ export const MODELS: Record<string, ModelDef> = {
   home:   { files: F('modern_home.glb'), fit: { w: 16 }, proxyColor: '#c9c2b4' },
   office: { files: F('modern_building_-_gallery_-_office.glb'), fit: { h: 40 }, proxyColor: '#8d99a6' },
   trees:  { files: F('low_poly_forest_tree_pack.glb'), fit: { h: 7 }, proxyColor: '#2f5d2a' },
+  skyline: { files: F('low_poly_night_city_building_skyline.glb'), fit: { h: 60 }, proxyColor: '#6f7a86' }, // not used yet
   car:    { files: F('paris-car-01.glb'), fit: { w: 4.5 }, proxyColor: '#aa3333' },
 };
 
