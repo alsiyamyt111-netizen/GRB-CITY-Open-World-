@@ -278,7 +278,7 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
   for (let x = HALF + 20; x < 760; x += 14) { const z = Math.sin(x * 0.02) * 30 - (x - HALF) * 0.2; for (const s of [-3, 3]) { if (x < HALF + 60 || heightAt(x, z + s) < 12) continue; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + rnd() * 0.4), stoneMat); st.position.set(x, heightAt(x, z + s) + 0.2, z + s); scene.add(st); } }
   // rocks on mountains (climbable obstacles)
   const rockG = new THREE.DodecahedronGeometry(1, 0); const rocks = new THREE.InstancedMesh(rockG, stoneMat, 160);
-  for (let i = 0; i < 160; i++) { const x = HALF + 60 + rnd() * 450, z = (rnd() - 0.5) * 900; if (inWater(x, z) || heightAt(x, z) < 12) { rocks.setMatrixAt(i, m4.makeScale(0, 0, 0)); continue; } // hills only const s = 1 + rnd() * 3; m4.compose(pv.set(x, heightAt(x, z), z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), sv.set(s, s * 0.7, s)); rocks.setMatrixAt(i, m4); }
+  for (let i = 0; i < 160; i++) { const x = HALF + 60 + rnd() * 450, z = (rnd() - 0.5) * 900; if (inWater(x, z) || heightAt(x, z) < 12) { rocks.setMatrixAt(i, m4.makeScale(0, 0, 0)); continue; } const s = 1 + rnd() * 3; m4.compose(pv.set(x, heightAt(x, z), z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), sv.set(s, s * 0.7, s)); rocks.setMatrixAt(i, m4); }
   rocks.castShadow = true; scene.add(rocks);
   // radio tower on summit
   const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 1.2, 30, 4), solid('#c62828', 0.5, 0.5)); tower.position.set(560, heightAt(560, -120) + 15, -125); scene.add(tower);
