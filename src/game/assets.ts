@@ -8,7 +8,7 @@ export interface FitSpec { w?: number; h?: number; maxW?: number }
 export interface ModelDef { files: string[]; fit: FitSpec; proxyColor: string }
 
 // The loader tries each folder in order, so the GLB can sit in public/models/ or public/models/buildings/ etc.
-const F = (name: string) => ['models/', 'models/buildings/', 'models/city/', 'models/vehicles/', 'models/cars/', 'models/trees/', 'models/nature/', 'models/roads/', 'models/props/'].map(d => d + name);
+const F = (name: string) => ['models/', 'models/Props/', 'models/Vehicles/', 'models/props/', 'models/vehicles/', 'models/buildings/', 'models/city/', 'models/vehicles/', 'models/cars/', 'models/trees/', 'models/nature/', 'models/roads/', 'models/props/'].map(d => d + name);
 // Paths relative to AssetLibrary base. Add more keys (skyline, trees, road pieces, cars) the same way.
 export const MODELS: Record<string, ModelDef> = {
   house:  { files: F('modern_house.glb'), fit: { w: 16 }, proxyColor: '#cfc8bd' },
