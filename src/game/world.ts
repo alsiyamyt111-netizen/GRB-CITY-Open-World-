@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { BLOCK, N, HALF, ROAD_W, SPECIAL_BLOCKS, blockCenter, VEHICLES, VIEWPOINTS } from './data';
 import { tex } from './textures';
+import { AssetLibrary, LodSet, placeBuilding } from './assets';
 
 export interface Box { minX: number; maxX: number; minZ: number; maxZ: number; h: number }
 export const WORLD = 1700;
@@ -29,11 +30,16 @@ export const inWater = (x: number, z: number) => z > RIVER_Z0 && z < RIVER_Z1 &&
 export interface WorldBuild {
   colliders: Box[]; cullables: THREE.Object3D[]; nightMats: THREE.MeshStandardMaterial[]; lampMat: THREE.MeshStandardMaterial;
   water: THREE.Mesh; mapCanvas: HTMLCanvasElement; parkedSpots: { x: number; z: number; rot: number; vid: string }[];
-  viewpointMeshes: THREE.Mesh[]; zoneAt: (x: number, z: number) => string;
+  viewpointMeshes: THREE.Mesh[]; lod: LodSet; zoneAt: (x: number, z: number) => string;
 }
 
-export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: string) => void, quality: number): Promise<WorldBuild> {
+export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: string) => void, quality: number, lib?: AssetLibrary): Promise<WorldBuild> {
   seed = 1337;
+  if (!lib) { // self-contained: no changes needed in the calling file
+    lib = new AssetLibrary();
+    await lib.downloadPack((p, m) => progress(p * 0.04, m));
+    await lib.preload(['house', 'home', 'office']);
+  }
   const tick = () => new Promise(r => setTimeout(r, 0));
   const colliders: Box[] = [], cullables: THREE.Object3D[] = [], nightMats: THREE.MeshStandardMaterial[] = [];
   progress(0.05, 'Sculpting terrain…'); await tick();
@@ -103,6 +109,15 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
   const treePts: [number, number, number][] = [];
   const signs: { x: number; z: number; text: string; color: string; h: number }[] = [];
   const inner = BLOCK - ROAD_W - 6;
+  const lod = new LodSet(); const ctx = { lib, lod, colliders };
+  { // update LOD from the render camera twice a second (no game-loop change needed)
+    let lodT = 0; const prev = scene.onBeforeRender;
+    scene.onBeforeRender = (r: any, s: any, camera: THREE.Camera, ...rest: any[]) => {
+      (prev as any).call(scene, r, s, camera, ...rest);
+      const t = performance.now(); if (t - lodT < 500) return; lodT = t;
+      lod.update(camera.matrixWorld.elements[12], camera.matrixWorld.elements[14]);
+    };
+  }
 
   for (let bx = 0; bx < N; bx++) for (let bz = 0; bz < N; bz++) {
     const [cx, cz] = blockCenter(bx, bz); const sp = SPECIAL_BLOCKS[`${bx},${bz}`];
@@ -162,11 +177,16 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
         const x = cx - inner / 2 + lw * (i + 0.5), z = cz - inner / 2 + lw * (j + 0.5);
         if (residential) {
           if (rnd() < 0.2) { treePts.push([x, z, 1]); continue; }
+          // GLB house (falls back to the old box house if the model is missing). Assumes model front faces +Z.
+          const face = j === lots - 1 ? 0 : j === 0 ? Math.PI : i === 0 ? -Math.PI / 2 : Math.PI / 2;
+          if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 0.8 })) { if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
           const h = 5 + rnd() * 4; const m = addBuilding(x, z, lw * 0.7, lw * 0.6, h, facadeMats[[1, 3, 4][Math.floor(rnd() * 3)]], grp);
           const roof = new THREE.Mesh(new THREE.ConeGeometry(lw * 0.55, 3, 4), solid(['#8d3b2b', '#5a3d2b', '#444'][Math.floor(rnd() * 3)])); roof.rotation.y = Math.PI / 4; roof.position.set(x, m.userData.h + 1.7, z); roof.castShadow = true; grp.add(roof);
           if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]);
         } else {
           const h = downtown ? 30 + rnd() * 70 : 12 + rnd() * 28;
+          const towers = ['office', 'skyline'].filter(k => lib?.has(k));
+          if (towers.length && placeBuilding(ctx, grp, towers[Math.floor(rnd() * towers.length)], x, z, Math.floor(rnd() * 4) * Math.PI / 2, { h, maxW: lw * 0.85 })) continue;
           const mat = facadeMats[Math.floor(rnd() * 6)];
           addBuilding(x, z, lw * (0.7 + rnd() * 0.2), lw * (0.7 + rnd() * 0.2), h, mat, grp);
           if (downtown && rnd() < 0.5) addBuilding(x, z, lw * 0.4, lw * 0.4, h + 10 + rnd() * 20, mat, grp);
@@ -289,5 +309,5 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
     const d = Math.hypot(x, z) / HALF; return d < 0.55 ? 'Downtown' : d > 0.9 ? 'Green Homes' : 'Midtown';
   };
   progress(1, 'Done'); 
-  return { colliders, cullables, nightMats, lampMat, water, mapCanvas: mc, parkedSpots, viewpointMeshes: vpMeshes, zoneAt };
+  return { colliders, cullables, nightMats, lampMat, water, mapCanvas: mc, parkedSpots, viewpointMeshes: vpMeshes, lod, zoneAt };
 }
