@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  base: "/GRB-CITY-Open-World/",
+  base: "/GRB-CITY-Open-World-/",
   plugins: [react(), tailwindcss(), viteSingleFile()],
   resolve: {
     alias: {
