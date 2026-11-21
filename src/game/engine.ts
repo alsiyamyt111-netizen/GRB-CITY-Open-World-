@@ -254,12 +254,13 @@ export class Game {
     if (input.run && Math.hypot(mx, my) < 0.05) my = 1; // run button alone: sprint forward
     const mag = Math.min(1, Math.hypot(mx, my));
     const running = input.run && mag > 0.05 && this.stamina > 1 && !input.crouch && !input.prone && !swim;
-    const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
+    const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 9 : 3.2;
+    const mv = running ? 1 : mag; // sprint keeps full speed; stick only sets direction
     if (mag > 0.05) {
       const ang = this.camYaw - Math.atan2(mx, my); const targetYaw = ang;
       let d = targetYaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += d * Math.min(1, dt * 12);
       const prev = this.pos.clone();
-      this.pos.x += Math.sin(ang) * speed * mag * dt; this.pos.z += Math.cos(ang) * speed * mag * dt;
+      this.pos.x += Math.sin(ang) * speed * mv * dt; this.pos.z += Math.cos(ang) * speed * mv * dt;
       // steep slope check (hiking): slow down climbing
       const gNew = groundAt(this.pos.x, this.pos.z), gOld = groundAt(prev.x, prev.z);
       const slope = (gNew - gOld) / Math.max(0.001, Math.hypot(this.pos.x - prev.x, this.pos.z - prev.z));
