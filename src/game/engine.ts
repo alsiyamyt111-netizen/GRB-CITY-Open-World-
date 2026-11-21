@@ -39,7 +39,7 @@ export class Game {
   sun = new THREE.DirectionalLight('#fff', 3); hemi = new THREE.HemisphereLight('#bcd8ff', '#4a4030', 1);
   sky = new Sky(); pmrem: THREE.PMREMGenerator; envRT?: THREE.WebGLRenderTarget; lastEnvTime = -99;
   world!: WorldBuild; grid = new Map<string, Box[]>();
-  player!: AnimChar; weapons!: WeaponHolder; aim = false; baseFov = 60; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0;
+  player!: AnimChar; weapons!: WeaponHolder; aim = false; baseFov = 60; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0; exhausted = false; airT = 0; animWant = 'idle'; animT = 0;
   camYaw = Math.PI; camPitch = 0.25; camMode = 0; camPos = new THREE.Vector3();
   vehicles: Veh[] = []; peds: Ped[] = []; current: Veh | null = null;
   time = 9; weather = 'clear'; weatherT = 120; cloud = 0; rain = 0; fogK = 0; rainPts!: THREE.Points; clouds: THREE.Sprite[] = []; stars!: THREE.Points;
@@ -248,8 +248,9 @@ export class Game {
     const P = this.player; const sens = this.profile.settings.sensitivity;
     this.camYaw -= input.lookDx * 0.005 * sens; this.camPitch = Math.max(-0.35, Math.min(1.1, this.camPitch + input.lookDy * 0.004 * sens)); input.lookDx = input.lookDy = 0;
     const swim = inWater(this.pos.x, this.pos.z) && this.pos.y < -0.8;
-    let mx = input.mx, my = input.my; const mag = Math.min(1, Math.hypot(mx, my));
-    const running = input.run && mag > 0.3 && this.stamina > 1 && !input.crouch && !input.prone && !swim;
+    let mx = input.mx, my = input.my; const mag0 = Math.min(1, Math.hypot(mx, my)); const mag = mag0 < 0.12 ? 0 : mag0; // dead zone: finger jitter near the stick centre no longer flips walk/idle
+    if (this.stamina <= 0.5) this.exhausted = true; else if (this.stamina > 30) this.exhausted = false; // after running out, rest until 30% — stops the run/walk/run stutter
+    const running = input.run && mag > 0.3 && !this.exhausted && !input.crouch && !input.prone && !swim;
     const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
     if (mag > 0.05) {
       const ang = this.camYaw - Math.atan2(mx, my); const targetYaw = ang;
@@ -265,21 +266,23 @@ export class Game {
       for (const v of this.vehicles) { if (!v.m.group.visible) continue; const d2 = v.pos.distanceTo(this.pos), r = v.def.wid / 2 + 0.5; if (d2 < r + v.def.len * 0.3) { const local = this.pos.clone().sub(v.pos); const f = fwd(v.heading), rr = right(v.heading); const lf = local.dot(f), lr = local.dot(rr); if (Math.abs(lf) < v.def.len / 2 + 0.3 && Math.abs(lr) < v.def.wid / 2 + 0.3) { const pushR = (v.def.wid / 2 + 0.31) * Math.sign(lr || 1); if (v.def.wid / 2 + 0.3 - Math.abs(lr) < v.def.len / 2 + 0.3 - Math.abs(lf)) this.pos.copy(v.pos).add(f.multiplyScalar(lf)).add(rr.multiplyScalar(pushR)); else this.pos.copy(v.pos).add(f.multiplyScalar((v.def.len / 2 + 0.31) * Math.sign(lf || 1))).add(rr.multiplyScalar(lr)); } } }
       this.stepT -= dt * (running ? 1.8 : 1); if (this.stepT < 0 && this.onGround) { this.stepT = 0.4; audio.step(); }
     }
-    if (running) this.stamina = Math.max(0, this.stamina - dt * 14); else this.stamina = Math.min(100, this.stamina + dt * (mag > 0.05 ? 8 : 16));
+    if (running) this.stamina = Math.max(0, this.stamina - dt * 10); else this.stamina = Math.min(100, this.stamina + dt * (mag > 0.05 ? 8 : 16));
     // jump & gravity
     const g = swim ? -1.3 : groundAt(this.pos.x, this.pos.z);
     if (input.jump && this.onGround && !swim && !input.prone && this.stamina > 8) { this.vy = 8.5; this.onGround = false; this.stamina -= 8; }
     input.jump = false;
     this.vy -= 24 * dt; this.pos.y += this.vy * dt;
-    if (this.pos.y <= g) { if (!this.onGround && this.vy < -16) { const dmg = (-this.vy - 16) * 6; this.health -= dmg; this.cb.onToast('Ouch! Fall damage'); } this.pos.y = g; this.vy = 0; this.onGround = true; }
+    if (this.pos.y <= g || (this.onGround && !swim && this.pos.y - g < 0.6)) { if (!this.onGround && this.vy < -16) { const dmg = (-this.vy - 16) * 6; this.health -= dmg; this.cb.onToast('Ouch! Fall damage'); } this.pos.y = g; this.vy = 0; this.onGround = true; }
     else if (this.pos.y > g + 0.3) this.onGround = false;
     if (swim) this.stamina = Math.max(0, this.stamina - dt * 4);
     P.group.position.copy(this.pos); P.group.rotation.y = this.yaw;
     if (swim) P.group.position.y -= 0.7;
     if (this.punchT > 0) this.punchT -= dt;
     else {
-      const st = !this.onGround ? 'jump' : input.prone ? 'prone' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle';
-      setCharState(P, STATE_CLIP[swim ? 'walk' : st]);
+      this.airT = this.onGround ? 0 : this.airT + dt;
+      const st = this.airT > 0.12 ? 'jump' : input.prone ? 'prone' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle'; // jump only after 0.12s in the air (small steps/curbs don't count)
+      if (st !== this.animWant) { this.animWant = st; this.animT = 0; } else this.animT += dt;
+      if (this.animT >= 0.1 || st === 'jump' || st === 'prone' || st === 'crouch') setCharState(P, STATE_CLIP[swim ? 'walk' : st]); // locomotion changes must last 0.1s to switch
     }
     this.health = Math.min(100, this.health + dt * 0.5);
     if (this.health <= 0) { this.health = 100; this.cb.onDeath(); this.pos.set(-280 + 40, 0.2, -280 + 76); this.vy = 0; if (this.mission) { this.cb.onToast('Mission failed'); this.cancelMission(); } }
