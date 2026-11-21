@@ -35,7 +35,7 @@ export interface WorldBuild {
 
 /** House walls as 4 thin boxes with a 3 m doorway in the middle of the front side (front = direction of `face`). */
 function houseWalls(x: number, z: number, hs: number, face: number): Box[] {
-  const t = 0.6, h = 8, door = 1.5;
+  const t = 2.0, h = 8, door = 1.5; // thick enough that a fast step can't tunnel through
   const sx = Math.sin(face), sz = Math.cos(face);
   const side = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? 'E' : 'W') : (sz > 0 ? 'N' : 'S');
   const out: Box[] = [];
@@ -200,7 +200,7 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
           if (rnd() < 0.2) { treePts.push([x, z, 1]); continue; }
           // GLB house (falls back to the old box house if the model is missing). Assumes model front faces +Z.
           const face = j === lots - 1 ? 0 : j === 0 ? Math.PI : i === 0 ? -Math.PI / 2 : Math.PI / 2;
-          const cb = colliders.length; if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 1.0 })) { colliders.length = cb; colliders.push(...houseWalls(x, z, lw * 0.5, face)); if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
+          const cb = colliders.length; if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 1.0 })) { const bb = colliders[cb] ?? { minX: x - lw * 0.5, maxX: x + lw * 0.5, minZ: z - lw * 0.5, maxZ: z + lw * 0.5, h: 8 }; colliders.length = cb; colliders.push(...houseWalls((bb.minX + bb.maxX) / 2, (bb.minZ + bb.maxZ) / 2, Math.min(lw * 0.5, (bb.maxX - bb.minX) / 2, (bb.maxZ - bb.minZ) / 2), face)); if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
           const h = 5 + rnd() * 4; const m = addBuilding(x, z, lw * 0.7, lw * 0.6, h, facadeMats[[1, 3, 4][Math.floor(rnd() * 3)]], grp);
           const roof = new THREE.Mesh(new THREE.ConeGeometry(lw * 0.55, 3, 4), solid(['#8d3b2b', '#5a3d2b', '#444'][Math.floor(rnd() * 3)])); roof.rotation.y = Math.PI / 4; roof.position.set(x, m.userData.h + 1.7, z); roof.castShadow = true; grp.add(roof);
           if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]);
@@ -296,10 +296,10 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
     m.position.set(x, heightAt(x, z) + 1.5, z); scene.add(m); vpMeshes.push(m);
   });
   const stoneMat = solid('#8d8478', 0.95);
-  for (let x = HALF + 20; x < 760; x += 14) { const z = Math.sin(x * 0.02) * 30 - (x - HALF) * 0.2; for (const s of [-3, 3]) { if (x < HALF + 60 || heightAt(x, z + s) < 12) continue; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + rnd() * 0.4), stoneMat); st.position.set(x, heightAt(x, z + s) + 0.2, z + s); scene.add(st); } }
+  for (let x = HALF + 20; x < 760; x += 14) { const z = Math.sin(x * 0.02) * 30 - (x - HALF) * 0.2; for (const s of [-3, 3]) { if (x < HALF + 160 || heightAt(x, z + s) < 25) continue; const st = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + rnd() * 0.4), stoneMat); st.position.set(x, heightAt(x, z + s) + 0.2, z + s); scene.add(st); } }
   // rocks on mountains (climbable obstacles)
   const rockG = new THREE.DodecahedronGeometry(1, 0); const rocks = new THREE.InstancedMesh(rockG, stoneMat, 160);
-  for (let i = 0; i < 160; i++) { const x = HALF + 60 + rnd() * 450, z = (rnd() - 0.5) * 900; if (inWater(x, z) || heightAt(x, z) < 12) { rocks.setMatrixAt(i, m4.makeScale(0, 0, 0)); continue; } const s = 1 + rnd() * 3; m4.compose(pv.set(x, heightAt(x, z), z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), sv.set(s, s * 0.7, s)); rocks.setMatrixAt(i, m4); }
+  for (let i = 0; i < 160; i++) { const x = HALF + 160 + rnd() * 400, z = (rnd() - 0.5) * 900; if (inWater(x, z) || heightAt(x, z) < 25) { rocks.setMatrixAt(i, m4.makeScale(0, 0, 0)); continue; } const s = 1 + rnd() * 3; m4.compose(pv.set(x, heightAt(x, z), z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6), sv.set(s, s * 0.7, s)); rocks.setMatrixAt(i, m4); }
   rocks.castShadow = true; scene.add(rocks);
   // radio tower on summit
   const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 1.2, 30, 4), solid('#c62828', 0.5, 0.5)); tower.position.set(560, heightAt(560, -120) + 15, -125); scene.add(tower);

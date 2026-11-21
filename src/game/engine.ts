@@ -260,7 +260,8 @@ export class Game {
       const ang = this.camYaw - Math.atan2(mx, my); const targetYaw = ang;
       let d = targetYaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += d * Math.min(1, dt * 12);
       const prev = this.pos.clone();
-      this.pos.x += Math.sin(ang) * speed * mv * dt; this.pos.z += Math.cos(ang) * speed * mv * dt;
+      const sdx = Math.sin(ang) * speed * mv * dt, sdz = Math.cos(ang) * speed * mv * dt; const nSub = Math.max(1, Math.ceil(Math.hypot(sdx, sdz) / 0.3)); // small steps so walls can't be jumped
+      for (let k = 0; k < nSub; k++) { this.pos.x += sdx / nSub; this.pos.z += sdz / nSub; this.collide(this.pos, 0.4, this.pos.y - groundAt(this.pos.x, this.pos.z)); }
       // steep slope check (hiking): slow down climbing
       const gNew = groundAt(this.pos.x, this.pos.z), gOld = groundAt(prev.x, prev.z);
       const slope = (gNew - gOld) / Math.max(0.001, Math.hypot(this.pos.x - prev.x, this.pos.z - prev.z));
