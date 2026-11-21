@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { BLOCK, N, HALF, ROAD_W, SPECIAL_BLOCKS, blockCenter, VEHICLES, VIEWPOINTS } from './data';
 import { tex } from './textures';
-import { AssetLibrary, LodSet, placeBuilding } from './assets';
+import { AssetLibrary, LodSet, placeBuilding, loadTreeVariants, scatterTrees } from './assets';
 
 export interface Box { minX: number; maxX: number; minZ: number; maxZ: number; h: number }
 export const WORLD = 1700;
@@ -205,13 +205,19 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
     if (Math.abs(z) < 12 && x > HALF) continue; // keep trail clear
     treePts.push([x, z, 0.8 + rnd() * 0.9]);
   }
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+  const treeVariants = await loadTreeVariants(lib, 'trees'); // GLB forest pack -> a few instanced variants
+  if (treeVariants.length) {
+    const inCity = (x: number, z: number) => Math.abs(x) < HALF + 10 && Math.abs(z) < HALF + 10;
+    scatterTrees(scene, treeVariants, treePts, (x, z) => heightAt(x, z) + (inCity(x, z) ? 0.2 : 0), rnd);
+    treePts.forEach(([x, z]) => { if (Math.abs(x) < HALF + 20 && Math.abs(z) < HALF + 20) colliders.push({ minX: x - 0.4, maxX: x + 0.4, minZ: z - 0.4, maxZ: z + 0.4, h: 4 }); });
+  } else { // fallback: procedural trees (no GLB found)
   const trunkG = new THREE.CylinderGeometry(0.2, 0.32, 3, 6); trunkG.translate(0, 1.5, 0);
   const leafG = new THREE.IcosahedronGeometry(2.2, 1); leafG.translate(0, 4.4, 0);
   const pineG = new THREE.ConeGeometry(2, 6, 7); pineG.translate(0, 5.5, 0);
   const trunks = new THREE.InstancedMesh(trunkG, solid('#4e342e', 0.9), treePts.length);
   const leaves = new THREE.InstancedMesh(leafG, new THREE.MeshStandardMaterial({ color: '#3f7a2c', roughness: 0.85, flatShading: true }), treePts.length);
   const pines = new THREE.InstancedMesh(pineG, new THREE.MeshStandardMaterial({ color: '#2a5a28', roughness: 0.85, flatShading: true }), treePts.length);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
   let li = 0, pi = 0; const col = new THREE.Color();
   treePts.forEach(([x, z, s], i) => {
     const y = heightAt(x, z) + (Math.abs(x) < HALF + 10 && Math.abs(z) < HALF + 10 ? 0.2 : 0);
@@ -222,6 +228,7 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
     if (Math.abs(x) < HALF + 20 && Math.abs(z) < HALF + 20) colliders.push({ minX: x - 0.4, maxX: x + 0.4, minZ: z - 0.4, maxZ: z + 0.4, h: 4 });
   });
   leaves.count = li; pines.count = pi; [trunks, leaves, pines].forEach(m => { m.castShadow = true; m.receiveShadow = true; scene.add(m); });
+  }
 
   progress(0.68, 'Building the bridge…'); await tick();
   // BRIDGE

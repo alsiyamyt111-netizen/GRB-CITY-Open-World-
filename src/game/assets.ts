@@ -8,12 +8,13 @@ export interface FitSpec { w?: number; h?: number; maxW?: number }
 export interface ModelDef { files: string[]; fit: FitSpec; proxyColor: string }
 
 // The loader tries each folder in order, so the GLB can sit in public/models/ or public/models/buildings/ etc.
-const F = (name: string) => ['models/', 'models/buildings/', 'models/city/', 'models/vehicles/', 'models/cars/'].map(d => d + name);
+const F = (name: string) => ['models/', 'models/buildings/', 'models/city/', 'models/vehicles/', 'models/cars/', 'models/trees/', 'models/nature/', 'models/roads/', 'models/props/'].map(d => d + name);
 // Paths relative to AssetLibrary base. Add more keys (skyline, trees, road pieces, cars) the same way.
 export const MODELS: Record<string, ModelDef> = {
   house:  { files: F('modern_house.glb'), fit: { w: 16 }, proxyColor: '#cfc8bd' },
   home:   { files: F('modern_home.glb'), fit: { w: 16 }, proxyColor: '#c9c2b4' },
   office: { files: F('modern_building_-_gallery_-_office.glb'), fit: { h: 40 }, proxyColor: '#8d99a6' },
+  trees:  { files: F('low_poly_forest_tree_pack.glb'), fit: { h: 7 }, proxyColor: '#2f5d2a' },
   car:    { files: F('paris-car-01.glb'), fit: { w: 4.5 }, proxyColor: '#aa3333' },
 };
 
@@ -50,6 +51,21 @@ export class AssetLibrary {
     return r.arrayBuffer();
   }
 
+  private async readGLTF(def: ModelDef) {
+    for (const f of def.files) {
+      try { return await this.loader.parseAsync(await this.buffer(this.base + f), ''); } catch { /* try next folder */ }
+    }
+    throw new Error('not found: ' + def.files[0]);
+  }
+
+  private raw = new Map<string, Promise<THREE.Group | null>>();
+  /** Load a multi-object pack as-is (no scaling), once. Used for the tree pack. */
+  loadRaw(key: string): Promise<THREE.Group | null> {
+    let p = this.raw.get(key);
+    if (!p) { const def = MODELS[key]; p = def ? this.readGLTF(def).then(g => g.scene, e => { console.warn('GLB failed:', key, e); return null; }) : Promise.resolve(null); this.raw.set(key, p); }
+    return p;
+  }
+
   /** Load once, normalise (origin = bottom centre, scaled to `fit`). Returns null on failure so callers can fall back to boxes. */
   load(key: string): Promise<THREE.Group | null> {
     const p0 = this.pending.get(key); if (p0) return p0;
@@ -57,11 +73,7 @@ export class AssetLibrary {
     const p = (async () => {
       if (!def) return null;
       try {
-        let gltf: Awaited<ReturnType<GLTFLoader['parseAsync']>> | null = null;
-        for (const f of def.files) {
-          try { gltf = await this.loader.parseAsync(await this.buffer(this.base + f), ''); break; } catch { /* try next folder */ }
-        }
-        if (!gltf) throw new Error('not found: ' + def.files[0]);
+        const gltf = await this.readGLTF(def);
         const root = gltf.scene; root.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
         const s = def.fit.h ? def.fit.h / size.y : (def.fit.w ?? 10) / Math.max(size.x, size.z);
@@ -126,4 +138,49 @@ export function placeBuilding(ctx: PlaceCtx, parent: THREE.Object3D, key: string
   const b = new THREE.Box3().setFromObject(near);
   ctx.colliders.push({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, h: b.max.y });
   ctx.lod.add(near, far, x, z); return true;
+}
+
+// ---------------- trees from a GLB pack ----------------
+export interface TreeVariant { parts: { geo: THREE.BufferGeometry; mat: THREE.Material | THREE.Material[]; m: THREE.Matrix4 }[]; tris: number }
+
+/** Splits a tree pack into variants (one per top-level object), scaled together so the median tree is `targetH` tall,
+ *  each standing on y=0 and centred on x/z. Ground planes and tiny pieces are skipped. Returns [] if nothing usable. */
+export async function loadTreeVariants(lib: AssetLibrary | undefined, key: string, targetH = 7, maxVariants = 6): Promise<TreeVariant[]> {
+  const raw = lib ? await lib.loadRaw(key) : null; if (!raw) return [];
+  raw.updateMatrixWorld(true);
+  const hasMesh = (o: THREE.Object3D) => { let f = false; o.traverse(c => { if ((c as THREE.Mesh).isMesh) f = true; }); return f; };
+  let node: THREE.Object3D = raw;
+  for (;;) { const kids = node.children.filter(hasMesh); if (kids.length === 1 && kids[0].children.length) node = kids[0]; else break; }
+  const info = node.children.filter(hasMesh).map(g => { const b = new THREE.Box3().setFromObject(g), s = b.getSize(new THREE.Vector3()); return { g, b, s }; })
+    .filter(v => v.s.y > 1e-4 && !(v.s.x > v.s.y * 4 && v.s.z > v.s.y * 4) && !/ground|plane|terrain/i.test(v.g.name));
+  if (!info.length) return [];
+  const hs = info.map(v => v.s.y).sort((x, y) => x - y), med = hs[Math.floor(hs.length / 2)];
+  const sc = targetH / med;
+  const out: TreeVariant[] = [];
+  for (const v of info.filter(v => v.s.y >= med * 0.4).slice(0, maxVariants)) {
+    const N = new THREE.Matrix4().makeScale(sc, sc, sc).multiply(new THREE.Matrix4().makeTranslation(-(v.b.min.x + v.b.max.x) / 2, -v.b.min.y, -(v.b.min.z + v.b.max.z) / 2));
+    const parts: TreeVariant['parts'] = []; let tris = 0;
+    v.g.traverse(o => { const m = o as THREE.Mesh; if (!m.isMesh) return; const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; parts.push({ geo: g, mat: m.material, m: N.clone().multiply(m.matrixWorld) }); });
+    if (parts.length) out.push({ parts, tris });
+  }
+  return out;
+}
+
+/** Instanced forest: one InstancedMesh per variant part, so draw calls = variants x parts. Keeps total triangles under maxTris. */
+export function scatterTrees(scene: THREE.Object3D, variants: TreeVariant[], pts: [number, number, number][], yAt: (x: number, z: number) => number, rnd: () => number, maxTris = 450000): number {
+  const avg = variants.reduce((a, v) => a + v.tris, 0) / variants.length || 1;
+  const use = pts.slice(0, Math.max(50, Math.floor(maxTris / avg)));
+  const buckets: [number, number, number][][] = variants.map(() => []);
+  use.forEach((p, i) => buckets[i % variants.length].push(p));
+  const q = new THREE.Quaternion(), pv = new THREE.Vector3(), sv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), m = new THREE.Matrix4();
+  variants.forEach((v, vi) => {
+    const b = buckets[vi]; if (!b.length) return;
+    const mats = b.map(([x, z, s]) => new THREE.Matrix4().compose(pv.set(x, yAt(x, z), z), q.setFromAxisAngle(up, rnd() * 6.283), sv.set(s, s, s)));
+    for (const part of v.parts) {
+      const im = new THREE.InstancedMesh(part.geo, part.mat, b.length);
+      mats.forEach((tm, i) => im.setMatrixAt(i, m.multiplyMatrices(tm, part.m)));
+      im.instanceMatrix.needsUpdate = true; (im as any).computeBoundingSphere?.(); scene.add(im);
+    }
+  });
+  return use.length;
 }
