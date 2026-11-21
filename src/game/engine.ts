@@ -18,6 +18,7 @@ export interface HudState {
 interface Veh { def: VehicleDef; m: VehicleMesh; pos: THREE.Vector3; heading: number; speed: number; steer: number; damage: number; ai: boolean; parked: boolean; driver?: Human; from: [number, number]; to: [number, number]; owned?: boolean; lights: boolean; prevPos: THREE.Vector3 }
 interface Ped { h: Human; pos: THREE.Vector3; from: [number, number]; to: [number, number]; speed: number; fallen: number; heading: number }
 
+const DAY_MIN = 60; // one full in-game day = 60 real minutes (night ≈ 5 min)
 const PRESETS = {
   low: { pr: 0.7, shadows: false, smap: 512, draw: 260, traffic: 8, peds: 10, q: 0 },
   medium: { pr: 1, shadows: true, smap: 1024, draw: 420, traffic: 14, peds: 18, q: 1 },
@@ -248,7 +249,10 @@ export class Game {
     const P = this.player; const sens = this.profile.settings.sensitivity;
     this.camYaw -= input.lookDx * 0.005 * sens; this.camPitch = Math.max(-0.35, Math.min(1.1, this.camPitch + input.lookDy * 0.004 * sens)); input.lookDx = input.lookDy = 0;
     const swim = inWater(this.pos.x, this.pos.z) && this.pos.y < -0.8;
-    let mx = input.mx, my = input.my; const mag = Math.min(1, Math.hypot(mx, my));
+    let mx = input.mx, my = input.my;
+    if (input.run && this.stamina <= 1) input.run = false;
+    if (input.run && Math.hypot(mx, my) < 0.05) my = 1; // run button alone: sprint forward
+    const mag = Math.min(1, Math.hypot(mx, my));
     const running = input.run && mag > 0.05 && this.stamina > 1 && !input.crouch && !input.prone && !swim;
     const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
     if (mag > 0.05) {
@@ -379,10 +383,10 @@ export class Game {
     });
   }
 
-  night() { const e = Math.sin((this.time - 6) / 12 * Math.PI); return Math.max(0, Math.min(1, 0.5 - e * 3)); }
+  night() { const dist = Math.min(this.time, 24 - this.time); return Math.max(0, Math.min(1, 1 - (dist - 1) / 0.5)); } // full night 23:00-01:00 (~5 min), fades in/out
   updateEnvironment(dt: number) {
     const s = this.profile.settings;
-    this.time = (this.time + dt * 24 / (s.dayLength * 60)) % 24;
+    this.time = (this.time + dt * 24 / (DAY_MIN * 60)) % 24;
     // weather state machine
     this.weatherT -= dt; if (this.weatherT < 0) { const opts = ['clear', 'clear', 'cloudy', 'rain', 'fog']; this.weather = opts[Math.floor(Math.random() * opts.length)]; this.weatherT = 90 + Math.random() * 120; this.cb.onToast(`Weather: ${this.weather}`); }
     const tc = this.weather === 'clear' ? 0.1 : this.weather === 'fog' ? 0.5 : 0.85, tr = this.weather === 'rain' ? 1 : 0, tf = this.weather === 'fog' ? 1 : this.weather === 'rain' ? 0.5 : 0;
