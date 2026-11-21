@@ -33,6 +33,27 @@ export interface WorldBuild {
   viewpointMeshes: THREE.Mesh[]; lod: LodSet; zoneAt: (x: number, z: number) => string;
 }
 
+/** House walls as 4 thin boxes with a 3 m doorway in the middle of the front side (front = direction of `face`). */
+function houseWalls(x: number, z: number, hs: number, face: number): Box[] {
+  const t = 0.6, h = 8, door = 1.5;
+  const sx = Math.sin(face), sz = Math.cos(face);
+  const side = Math.abs(sx) > Math.abs(sz) ? (sx > 0 ? 'E' : 'W') : (sz > 0 ? 'N' : 'S');
+  const out: Box[] = [];
+  const addWall = (side2: string) => {
+    const isX = side2 === 'E' || side2 === 'W';
+    const edge = side2 === 'E' ? x + hs : side2 === 'W' ? x - hs : side2 === 'N' ? z + hs : z - hs;
+    const lo = isX ? z - hs : x - hs, hi = isX ? z + hs : x + hs; // extent along the wall
+    const seg = (a: number, b: number) => isX
+      ? { minX: edge - t / 2, maxX: edge + t / 2, minZ: a, maxZ: b, h }
+      : { minX: a, maxX: b, minZ: edge - t / 2, maxZ: edge + t / 2, h };
+    const mid = (lo + hi) / 2;
+    if (side2 === side) { out.push(seg(lo, mid - door), seg(mid + door, hi)); }
+    else out.push(seg(lo, hi));
+  };
+  (['N', 'S', 'E', 'W'] as const).forEach(addWall);
+  return out;
+}
+
 export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: string) => void, quality: number, lib?: AssetLibrary): Promise<WorldBuild> {
   seed = 1337;
   if (!lib) { // self-contained: no changes needed in the calling file
@@ -179,7 +200,7 @@ export async function buildWorld(scene: THREE.Scene, progress: (p: number, msg: 
           if (rnd() < 0.2) { treePts.push([x, z, 1]); continue; }
           // GLB house (falls back to the old box house if the model is missing). Assumes model front faces +Z.
           const face = j === lots - 1 ? 0 : j === 0 ? Math.PI : i === 0 ? -Math.PI / 2 : Math.PI / 2;
-          const cb = colliders.length; if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 1.0 })) { colliders.length = cb; colliders.push({ minX: x - lw * 0.3, maxX: x + lw * 0.3, minZ: z - lw * 0.3, maxZ: z + lw * 0.3, h: 8 }); if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
+          const cb = colliders.length; if (placeBuilding(ctx, grp, rnd() < 0.5 ? 'house' : 'home', x, z, face, { w: lw * 1.0 })) { colliders.length = cb; colliders.push(...houseWalls(x, z, lw * 0.5, face)); if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]); continue; }
           const h = 5 + rnd() * 4; const m = addBuilding(x, z, lw * 0.7, lw * 0.6, h, facadeMats[[1, 3, 4][Math.floor(rnd() * 3)]], grp);
           const roof = new THREE.Mesh(new THREE.ConeGeometry(lw * 0.55, 3, 4), solid(['#8d3b2b', '#5a3d2b', '#444'][Math.floor(rnd() * 3)])); roof.rotation.y = Math.PI / 4; roof.position.set(x, m.userData.h + 1.7, z); roof.castShadow = true; grp.add(roof);
           if (rnd() < 0.5) treePts.push([x + lw * 0.42, z + lw * 0.4, 0.7]);

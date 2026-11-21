@@ -231,7 +231,7 @@ export class Game {
 
   // ---------- main loop ----------
   frame() {
-    const dt = Math.min(this.clock.getDelta(), 0.05);
+    const dt = Math.min(this.clock.getDelta(), 0.1);
     this.fpsAcc += dt; this.fpsN++; if (this.fpsAcc > 0.5) { this.fps = Math.round(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0; }
     if (this.paused) return;
     if (this.current) this.updateDriving(dt); else this.updateOnFoot(dt);
