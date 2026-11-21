@@ -1,39 +1,168 @@
+
 // Static game data: characters, vehicles, missions, world layout constants
+
+// GitHub Pages compatible model asset path
+const MODEL_ROOT = `${import.meta.env.BASE_URL}models`;
+
 export const BLOCK = 80;
-export const N = 8; // blocks per side
-export const HALF = (N * BLOCK) / 2; // 320
+export const N = 8;
+export const HALF = (N * BLOCK) / 2;
 export const ROAD_W = 16;
 
-export const blockCenter = (bx: number, bz: number): [number, number] => [-HALF + bx * BLOCK + BLOCK / 2, -HALF + bz * BLOCK + BLOCK / 2];
-
-export type Special = 'hospital' | 'police' | 'petrol' | 'mall' | 'park' | 'parking' | 'playground';
-export const SPECIAL_BLOCKS: Record<string, Special> = {
-  '1,1': 'hospital', '6,1': 'police', '2,6': 'petrol', '5,4': 'petrol',
-  '4,3': 'mall', '3,4': 'park', '6,6': 'park', '1,5': 'parking', '5,6': 'playground',
-};
-
-export interface CharacterDef { id: string; name: string; female: boolean; skin: string; shirt: string; pants: string; hair: string; bio: string; file: string }
-export const CHARACTERS: CharacterDef[] = [
-  { id: 'rafi', name: 'Rafi Khan', female: false, skin: '#c68a5e', shirt: '#151515', pants: '#1c1c22', hair: '#120c08', bio: 'Street-smart hustler', file: '/models/characters/x_boy.glb' },
-  { id: 'arif', name: 'Arif Hasan', female: false, skin: '#a8724a', shirt: '#e8e8ea', pants: '#2a3550', hair: '#1a120a', bio: 'Tech entrepreneur', file: '/models/characters/bc2.glb' },
-  { id: 'tanvir', name: 'Tanvir Ali', female: false, skin: '#8d5a3a', shirt: '#b3202a', pants: '#222', hair: '#0a0a0a', bio: 'Racing enthusiast', file: '/models/characters/bc3.glb' },
-  { id: 'sami', name: 'Sami Roy', female: false, skin: '#d9a47a', shirt: '#1f6fd1', pants: '#3a3a3a', hair: '#3b2414', bio: 'Beach-side cool', file: '/models/characters/bc4.glb' },
-  { id: 'nadia', name: 'Nadia Rahman', female: true, skin: '#d29b74', shirt: '#e0338a', pants: '#e8e8f0', hair: '#1a0f08', bio: 'Fashion influencer', file: '/models/characters/Y_girl.glb' },
-  { id: 'mim', name: 'Mim Akter', female: true, skin: '#c18560', shirt: '#f2f2f2', pants: '#3b4a6b', hair: '#2b1a10', bio: 'Medical student', file: '/models/characters/gc2.glb' },
-  { id: 'riya', name: 'Riya Sen', female: true, skin: '#e0b090', shirt: '#c41a1a', pants: '#111', hair: '#4a2a15', bio: 'Thrill seeker', file: '/models/characters/gc3.glb' },
-  { id: 'sara', name: 'Sara Islam', female: true, skin: '#9c6644', shirt: '#1d1d1d', pants: '#242424', hair: '#0d0806', bio: 'Undercover detective', file: '/models/characters/gc4.glb' },
+export const blockCenter = (bx: number, bz: number): [number, number] => [
+  -HALF + bx * BLOCK + BLOCK / 2,
+  -HALF + bz * BLOCK + BLOCK / 2
 ];
 
-// Mixamo animation clips shared by every character body above (see game/models.ts loadCharacter/setCharState)
+export type Special = 'hospital' | 'police' | 'petrol' | 'mall' | 'park' | 'parking' | 'playground';
+
+export const SPECIAL_BLOCKS: Record<string, Special> = {
+  '1,1': 'hospital',
+  '6,1': 'police',
+  '2,6': 'petrol',
+  '5,4': 'petrol',
+  '4,3': 'mall',
+  '3,4': 'park',
+  '6,6': 'park',
+  '1,5': 'parking',
+  '5,6': 'playground',
+};
+
+export interface CharacterDef {
+  id: string;
+  name: string;
+  female: boolean;
+  skin: string;
+  shirt: string;
+  pants: string;
+  hair: string;
+  bio: string;
+  file: string;
+}
+
+export const CHARACTERS: CharacterDef[] = [
+  {
+    id: 'rafi',
+    name: 'Rafi Khan',
+    female: false,
+    skin: '#c68a5e',
+    shirt: '#151515',
+    pants: '#1c1c22',
+    hair: '#120c08',
+    bio: 'Street-smart hustler',
+    file: `${MODEL_ROOT}/characters/x_boy.glb`
+  },
+  {
+    id: 'arif',
+    name: 'Arif Hasan',
+    female: false,
+    skin: '#a8724a',
+    shirt: '#e8e8ea',
+    pants: '#2a3550',
+    hair: '#1a120a',
+    bio: 'Tech entrepreneur',
+    file: `${MODEL_ROOT}/characters/bc2.glb`
+  },
+  {
+    id: 'tanvir',
+    name: 'Tanvir Ali',
+    female: false,
+    skin: '#8d5a3a',
+    shirt: '#b3202a',
+    pants: '#222',
+    hair: '#0a0a0a',
+    bio: 'Racing enthusiast',
+    file: `${MODEL_ROOT}/characters/bc3.glb`
+  },
+  {
+    id: 'sami',
+    name: 'Sami Roy',
+    female: false,
+    skin: '#d9a47a',
+    shirt: '#1f6fd1',
+    pants: '#3a3a3a',
+    hair: '#3b2414',
+    bio: 'Beach-side cool',
+    file: `${MODEL_ROOT}/characters/bc4.glb`
+  },
+  {
+    id: 'nadia',
+    name: 'Nadia Rahman',
+    female: true,
+    skin: '#d29b74',
+    shirt: '#e0338a',
+    pants: '#e8e8f0',
+    hair: '#1a0f08',
+    bio: 'Fashion influencer',
+    file: `${MODEL_ROOT}/characters/Y_girl.glb`
+  },
+  {
+    id: 'mim',
+    name: 'Mim Akter',
+    female: true,
+    skin: '#c18560',
+    shirt: '#f2f2f2',
+    pants: '#3b4a6b',
+    hair: '#2b1a10',
+    bio: 'Medical student',
+    file: `${MODEL_ROOT}/characters/gc2.glb`
+  },
+  {
+    id: 'riya',
+    name: 'Riya Sen',
+    female: true,
+    skin: '#e0b090',
+    shirt: '#c41a1a',
+    pants: '#111',
+    hair: '#4a2a15',
+    bio: 'Thrill seeker',
+    file: `${MODEL_ROOT}/characters/gc3.glb`
+  },
+  {
+    id: 'sara',
+    name: 'Sara Islam',
+    female: true,
+    skin: '#9c6644',
+    shirt: '#1d1d1d',
+    pants: '#242424',
+    hair: '#0d0806',
+    bio: 'Undercover detective',
+    file: `${MODEL_ROOT}/characters/gc4.glb`
+  },
+];
+
+// Mixamo animation clips
 export const ANIM_FILES: Record<string, string> = {
-  Idle: '/models/anims/Idle.fbx', Walk: '/models/anims/Walk.fbx', Run: '/models/anims/Run.fbx',
-  Jump: '/models/anims/jump.fbx', Crouch: '/models/anims/crouch.fbx', Prone: '/models/anims/prone.fbx',
-  Death: '/models/anims/death.fbx', Kick: '/models/anims/kick.fbx', Punch: '/models/anims/punch.fbx',
-  Getup: '/models/anims/Getup.fbx', StandToSit: '/models/anims/standtosit.fbx', SitToStand: '/models/anims/sittostand.fbx',
+  Idle: `${MODEL_ROOT}/anims/Idle.fbx`,
+  Walk: `${MODEL_ROOT}/anims/Walk.fbx`,
+  Run: `${MODEL_ROOT}/anims/Run.fbx`,
+  Jump: `${MODEL_ROOT}/anims/jump.fbx`,
+  Crouch: `${MODEL_ROOT}/anims/crouch.fbx`,
+  Prone: `${MODEL_ROOT}/anims/prone.fbx`,
+  Death: `${MODEL_ROOT}/anims/death.fbx`,
+  Kick: `${MODEL_ROOT}/anims/kick.fbx`,
+  Punch: `${MODEL_ROOT}/anims/punch.fbx`,
+  Getup: `${MODEL_ROOT}/anims/Getup.fbx`,
+  StandToSit: `${MODEL_ROOT}/anims/standtosit.fbx`,
+  SitToStand: `${MODEL_ROOT}/anims/sittostand.fbx`,
 };
 
 export type VType = 'sports' | 'car' | 'bike' | 'bus' | 'truck' | 'ambulance' | 'police';
-export interface VehicleDef { id: string; name: string; type: VType; color: string; maxSpeed: number; accel: number; handling: number; len: number; wid: number; hgt: number; price: number }
+
+export interface VehicleDef {
+  id: string;
+  name: string;
+  type: VType;
+  color: string;
+  maxSpeed: number;
+  accel: number;
+  handling: number;
+  len: number;
+  wid: number;
+  hgt: number;
+  price: number;
+}
+
 export const VEHICLES: VehicleDef[] = [
   { id: 'sedan', name: 'Civic Line', type: 'car', color: '#d8d8dc', maxSpeed: 42, accel: 12, handling: 1.6, len: 4.4, wid: 1.9, hgt: 1.4, price: 0 },
   { id: 'hatch', name: 'Mira Hatch', type: 'car', color: '#2e7d32', maxSpeed: 38, accel: 11, handling: 1.8, len: 3.8, wid: 1.8, hgt: 1.5, price: 2500 },
@@ -47,19 +176,90 @@ export const VEHICLES: VehicleDef[] = [
   { id: 'cop', name: 'Interceptor', type: 'police', color: '#101820', maxSpeed: 60, accel: 18, handling: 1.7, len: 4.8, wid: 2.0, hgt: 1.45, price: 15000 },
 ];
 
-export interface MissionDef { id: string; name: string; desc: string; type: 'walk' | 'drive' | 'hike'; reward: number; time?: number; points: [number, number][]; icon: string }
-const hc = blockCenter(1, 1), pc = blockCenter(6, 1), pet = blockCenter(2, 6), mall = blockCenter(4, 3);
+export interface MissionDef {
+  id: string;
+  name: string;
+  desc: string;
+  type: 'walk' | 'drive' | 'hike';
+  reward: number;
+  time?: number;
+  points: [number, number][];
+  icon: string;
+}
+
+const hc = blockCenter(1, 1);
+const pc = blockCenter(6, 1);
+const pet = blockCenter(2, 6);
+const mall = blockCenter(4, 3);
+
 export const MISSIONS: MissionDef[] = [
-  { id: 'tour', name: 'City Tour', desc: 'Walk through downtown and visit the mall, park and plaza.', type: 'walk', reward: 500, icon: '🚶', points: [[mall[0], mall[1] + 36], blockCenter(3, 4), [0, 0]] },
-  { id: 'hospital', name: 'Hospital Run', desc: 'Get to the hospital within 90 seconds. Grab any vehicle!', type: 'drive', reward: 1500, time: 90, icon: '🚑', points: [[hc[0], hc[1] + 36]] },
-  { id: 'fuel', name: 'Fuel Up', desc: 'Drive to the petrol station in the south-west district.', type: 'drive', reward: 400, icon: '⛽', points: [[pet[0], pet[1]]] },
-  { id: 'patrol', name: 'Night Patrol', desc: 'Drive the patrol route past the police station in 150 seconds.', type: 'drive', reward: 2200, time: 150, icon: '🚓', points: [[pc[0], pc[1] + 36], [280, 0], [0, 280], [-280, 0]] },
-  { id: 'hike', name: 'Summit Trail', desc: 'Hike the eastern trail and reach the mountain summit.', type: 'hike', reward: 1200, icon: '⛰️', points: [[380, -40], [440, -90], [500, -60], [560, -120]] },
-  { id: 'bridge', name: 'Over The River', desc: 'Cross the southern bridge and reach the river lookout.', type: 'walk', reward: 800, icon: '🌉', points: [[0, 345], [0, 470], [60, 520]] },
+  {
+    id: 'tour',
+    name: 'City Tour',
+    desc: 'Walk through downtown and visit the mall, park and plaza.',
+    type: 'walk',
+    reward: 500,
+    icon: '🚶',
+    points: [[mall[0], mall[1] + 36], blockCenter(3, 4), [0, 0]]
+  },
+  {
+    id: 'hospital',
+    name: 'Hospital Run',
+    desc: 'Get to the hospital within 90 seconds. Grab any vehicle!',
+    type: 'drive',
+    reward: 1500,
+    time: 90,
+    icon: '🚑',
+    points: [[hc[0], hc[1] + 36]]
+  },
+  {
+    id: 'fuel',
+    name: 'Fuel Up',
+    desc: 'Drive to the petrol station in the south-west district.',
+    type: 'drive',
+    reward: 400,
+    icon: '⛽',
+    points: [[pet[0], pet[1]]]
+  },
+  {
+    id: 'patrol',
+    name: 'Night Patrol',
+    desc: 'Drive the patrol route past the police station in 150 seconds.',
+    type: 'drive',
+    reward: 2200,
+    time: 150,
+    icon: '🚓',
+    points: [[pc[0], pc[1] + 36], [280, 0], [0, 280], [-280, 0]]
+  },
+  {
+    id: 'hike',
+    name: 'Summit Trail',
+    desc: 'Hike the eastern trail and reach the mountain summit.',
+    type: 'hike',
+    reward: 1200,
+    icon: '⛰️',
+    points: [[380, -40], [440, -90], [500, -60], [560, -120]]
+  },
+  {
+    id: 'bridge',
+    name: 'Over The River',
+    desc: 'Cross the southern bridge and reach the river lookout.',
+    type: 'walk',
+    reward: 800,
+    icon: '🌉',
+    points: [[0, 345], [0, 470], [60, 520]]
+  },
 ];
 
-// Hiking exploration viewpoints (free collectibles)
-export const VIEWPOINTS: [number, number][] = [[420, 120], [520, 40], [600, -200], [470, -260], [-480, -420], [-120, 560]];
+// Hiking exploration viewpoints
+export const VIEWPOINTS: [number, number][] = [
+  [420, 120],
+  [520, 40],
+  [600, -200],
+  [470, -260],
+  [-480, -420],
+  [-120, 560]
+];
 
 export const SHOP_ITEMS = [
   { id: 'med', name: 'Medkit x3', desc: 'Restore full health instantly', price: 300, currency: 'coins' as const, icon: '🩹' },
