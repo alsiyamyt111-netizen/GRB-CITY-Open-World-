@@ -13,7 +13,7 @@ export const input = { mx: 0, my: 0, run: false, crouch: false, jump: false, loo
 
 export interface HudState {
   mode: 'walk' | 'run' | 'drive' | 'bike' | 'hike' | 'swim'; health: number; stamina: number; speed: number; vehicleName: string; damage: number; lights: boolean;
-  time: number; weather: string; zone: string; prompt: string; mission: null | { name: string; step: number; total: number; timeLeft?: number; dist: number }; fps: number; crouch: boolean; camMode: number; money: number; weapon: WeaponId;
+  time: number; weather: string; zone: string; prompt: string; mission: null | { name: string; step: number; total: number; timeLeft?: number; dist: number }; fps: number; crouch: boolean; camMode: number; money: number; weapon: WeaponId; run: boolean;
 }
 interface Veh { def: VehicleDef; m: VehicleMesh; pos: THREE.Vector3; heading: number; speed: number; steer: number; damage: number; ai: boolean; parked: boolean; driver?: Human; from: [number, number]; to: [number, number]; owned?: boolean; lights: boolean; prevPos: THREE.Vector3 }
 interface Ped { h: Human; pos: THREE.Vector3; from: [number, number]; to: [number, number]; speed: number; fallen: number; heading: number }
@@ -39,7 +39,7 @@ export class Game {
   sun = new THREE.DirectionalLight('#fff', 3); hemi = new THREE.HemisphereLight('#bcd8ff', '#4a4030', 1);
   sky = new Sky(); pmrem: THREE.PMREMGenerator; envRT?: THREE.WebGLRenderTarget; lastEnvTime = -99;
   world!: WorldBuild; grid = new Map<string, Box[]>();
-  player!: AnimChar; weapons!: WeaponHolder; aim = false; baseFov = 60; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0; exhausted = false; airT = 0; animWant = 'idle'; animT = 0;
+  player!: AnimChar; weapons!: WeaponHolder; aim = false; baseFov = 60; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0;
   camYaw = Math.PI; camPitch = 0.25; camMode = 0; camPos = new THREE.Vector3();
   vehicles: Veh[] = []; peds: Ped[] = []; current: Veh | null = null;
   time = 9; weather = 'clear'; weatherT = 120; cloud = 0; rain = 0; fogK = 0; rainPts!: THREE.Points; clouds: THREE.Sprite[] = []; stars!: THREE.Points;
@@ -71,8 +71,7 @@ export class Game {
     progress(0.82, 'Spawning characters…'); await new Promise(r => setTimeout(r, 0));
     const charDef = CHARACTERS.find(c => c.id === this.profile.charId) || CHARACTERS[0];
     this.player = await loadCharacter(charDef.file, ANIM_FILES, 1.78); S.add(this.player.group);
-    this.weapons = new WeaponHolder(this.player);
-    this.weapons.equip(isWeaponId(this.profile.weapon) ? this.profile.weapon : 'fist'); this.baseFov = this.camera.fov;
+    this.weapons = new WeaponHolder(this.player); this.weapons.equip(isWeaponId(this.profile.weapon) ? this.profile.weapon : 'fist'); this.baseFov = this.camera.fov;
     if (this.profile.savedPos) { this.pos.set(this.profile.savedPos.x, 0, this.profile.savedPos.z); this.time = this.profile.savedPos.time; }
     // parked vehicles
     for (const sp of this.world.parkedSpots) this.spawnVehicle(VEHICLES.find(v => v.id === sp.vid)!, sp.x, sp.z, sp.rot, false);
@@ -177,11 +176,11 @@ export class Game {
   // ---------- actions from UI ----------
   nearestVehicle() { let best: Veh | null = null, bd = 1e9; for (const v of this.vehicles) { if (!v.m.group.visible) continue; const d = v.pos.distanceTo(this.pos); const lim = Math.max(3.2, v.def.len / 2 + 1.6); if (d < lim && d < bd) { bd = d; best = v; } } return best; }
   interact() {
-    audio.door();
+    input.run = false; audio.door();
     if (this.current) {
       const v = this.current; v.parked = true; v.speed = 0; this.current = null;
       this.player.group.removeFromParent(); this.scene.add(this.player.group); this.player.group.visible = true;
-      const out = v.pos.clone().add(right(v.heading).multiplyScalar(v.def.wid / 2 + 1.0)); this.collide(out, 0.4, 0); this.pos.copy(out); this.pos.y = groundAt(out.x, out.z); this.yaw = v.heading;
+      const out = v.pos.clone().add(right(v.heading).multiplyScalar(v.def.wid / 2 + 1.0)); this.collide(out, 0.4, 0); this.pos.copy(out); this.pos.y = groundAt(out.x, out.z); this.yaw = v.heading; this.vy = 0; this.onGround = true; setCharState(this.player, 'Idle', 0.15);
       this.headSpot.intensity = 0; v.m.headMat.emissiveIntensity = 0.2; v.m.sirenMats?.forEach(m => m.emissiveIntensity = 0); audio.engine(false, 0);
       if (v.owned) { this.profile.vehicleDamage[v.def.id] = v.damage; }
       return;
@@ -204,10 +203,11 @@ export class Game {
   }
   /** Equip a weapon (not while in a vehicle). Persisted in the profile. */
   equip(id: WeaponId) {
+    input.run = false;
     if (this.current) { this.cb.onToast('Get out of the vehicle first'); return; }
     this.weapons.equip(id); this.profile.weapon = id; audio.click(); this.cb.onSave();
   }
-  setAim(on: boolean) { this.aim = on; }
+  setAim(on: boolean) { this.aim = on; if (on) input.run = false; }
   /** Grenade button: throw one, then switch back to what was in hand. */
   quickThrow() {
     if (this.current) return;
@@ -216,11 +216,11 @@ export class Game {
     this.action();
     if (prev !== 'grenade') setTimeout(() => { if (this.weapons.id === 'grenade') this.weapons.equip(prev); }, 900);
   }
-  toggleLights() { if (!this.current) return; this.current.lights = !this.current.lights; audio.click(); }
-  horn() { audio.horn(); }
-  cycleCamera() { this.camMode = (this.camMode + 1) % 3; audio.click(); }
-  useMedkit() { if (this.profile.medkits <= 0) { this.cb.onToast('No medkits – buy in Shop'); return; } this.profile.medkits--; this.health = 100; this.cb.onToast('Health restored'); audio.reward(); }
-  useEnergy() { if (this.profile.energy <= 0) { this.cb.onToast('No energy drinks – buy in Shop'); return; } this.profile.energy--; this.stamina = 100; this.cb.onToast('Stamina refilled'); audio.reward(); }
+  toggleLights() { input.run = false; if (!this.current) return; this.current.lights = !this.current.lights; audio.click(); }
+  horn() { input.run = false; audio.horn(); }
+  cycleCamera() { input.run = false; this.camMode = (this.camMode + 1) % 3; audio.click(); }
+  useMedkit() { input.run = false; if (this.profile.medkits <= 0) { this.cb.onToast('No medkits – buy in Shop'); return; } this.profile.medkits--; this.health = 100; this.cb.onToast('Health restored'); audio.reward(); }
+  useEnergy() { input.run = false; if (this.profile.energy <= 0) { this.cb.onToast('No energy drinks – buy in Shop'); return; } this.profile.energy--; this.stamina = 100; this.cb.onToast('Stamina refilled'); audio.reward(); }
   repairCurrent() { const v = this.current || this.vehicles.find(v => v.owned); if (v) { v.damage = 0; this.applyDamageLook(v); if (v.owned) this.profile.vehicleDamage[v.def.id] = 0; } }
   startMission(id: string) { const def = MISSIONS.find(m => m.id === id); if (!def) return; this.mission = { def, idx: 0, timeLeft: def.time }; this.cb.onToast(`Mission: ${def.name}`); audio.reward(); }
   cancelMission() { this.mission = null; this.marker.visible = false; }
@@ -248,9 +248,8 @@ export class Game {
     const P = this.player; const sens = this.profile.settings.sensitivity;
     this.camYaw -= input.lookDx * 0.005 * sens; this.camPitch = Math.max(-0.35, Math.min(1.1, this.camPitch + input.lookDy * 0.004 * sens)); input.lookDx = input.lookDy = 0;
     const swim = inWater(this.pos.x, this.pos.z) && this.pos.y < -0.8;
-    let mx = input.mx, my = input.my; const mag0 = Math.min(1, Math.hypot(mx, my)); const mag = mag0 < 0.12 ? 0 : mag0; // dead zone: finger jitter near the stick centre no longer flips walk/idle
-    if (this.stamina <= 0.5) this.exhausted = true; else if (this.stamina > 30) this.exhausted = false; // after running out, rest until 30% — stops the run/walk/run stutter
-    const running = input.run && mag > 0.3 && !this.exhausted && !input.crouch && !input.prone && !swim;
+    let mx = input.mx, my = input.my; const mag = Math.min(1, Math.hypot(mx, my));
+    const running = input.run && mag > 0.05 && this.stamina > 1 && !input.crouch && !input.prone && !swim;
     const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
     if (mag > 0.05) {
       const ang = this.camYaw - Math.atan2(mx, my); const targetYaw = ang;
@@ -266,23 +265,21 @@ export class Game {
       for (const v of this.vehicles) { if (!v.m.group.visible) continue; const d2 = v.pos.distanceTo(this.pos), r = v.def.wid / 2 + 0.5; if (d2 < r + v.def.len * 0.3) { const local = this.pos.clone().sub(v.pos); const f = fwd(v.heading), rr = right(v.heading); const lf = local.dot(f), lr = local.dot(rr); if (Math.abs(lf) < v.def.len / 2 + 0.3 && Math.abs(lr) < v.def.wid / 2 + 0.3) { const pushR = (v.def.wid / 2 + 0.31) * Math.sign(lr || 1); if (v.def.wid / 2 + 0.3 - Math.abs(lr) < v.def.len / 2 + 0.3 - Math.abs(lf)) this.pos.copy(v.pos).add(f.multiplyScalar(lf)).add(rr.multiplyScalar(pushR)); else this.pos.copy(v.pos).add(f.multiplyScalar((v.def.len / 2 + 0.31) * Math.sign(lf || 1))).add(rr.multiplyScalar(lr)); } } }
       this.stepT -= dt * (running ? 1.8 : 1); if (this.stepT < 0 && this.onGround) { this.stepT = 0.4; audio.step(); }
     }
-    if (running) this.stamina = Math.max(0, this.stamina - dt * 10); else this.stamina = Math.min(100, this.stamina + dt * (mag > 0.05 ? 8 : 16));
+    if (running) this.stamina = Math.max(0, this.stamina - dt * 14); else this.stamina = Math.min(100, this.stamina + dt * (mag > 0.05 ? 8 : 16));
     // jump & gravity
     const g = swim ? -1.3 : groundAt(this.pos.x, this.pos.z);
     if (input.jump && this.onGround && !swim && !input.prone && this.stamina > 8) { this.vy = 8.5; this.onGround = false; this.stamina -= 8; }
     input.jump = false;
     this.vy -= 24 * dt; this.pos.y += this.vy * dt;
-    if (this.pos.y <= g || (this.onGround && !swim && this.pos.y - g < 0.6)) { if (!this.onGround && this.vy < -16) { const dmg = (-this.vy - 16) * 6; this.health -= dmg; this.cb.onToast('Ouch! Fall damage'); } this.pos.y = g; this.vy = 0; this.onGround = true; }
+    if (this.pos.y <= g) { if (!this.onGround && this.vy < -16) { const dmg = (-this.vy - 16) * 6; this.health -= dmg; this.cb.onToast('Ouch! Fall damage'); } this.pos.y = g; this.vy = 0; this.onGround = true; }
     else if (this.pos.y > g + 0.3) this.onGround = false;
     if (swim) this.stamina = Math.max(0, this.stamina - dt * 4);
     P.group.position.copy(this.pos); P.group.rotation.y = this.yaw;
     if (swim) P.group.position.y -= 0.7;
     if (this.punchT > 0) this.punchT -= dt;
     else {
-      this.airT = this.onGround ? 0 : this.airT + dt;
-      const st = this.airT > 0.12 ? 'jump' : input.prone ? 'prone' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle'; // jump only after 0.12s in the air (small steps/curbs don't count)
-      if (st !== this.animWant) { this.animWant = st; this.animT = 0; } else this.animT += dt;
-      if (this.animT >= 0.1 || st === 'jump' || st === 'prone' || st === 'crouch') setCharState(P, STATE_CLIP[swim ? 'walk' : st]); // locomotion changes must last 0.1s to switch
+      const st = !this.onGround ? 'jump' : input.prone ? 'prone' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle';
+      setCharState(P, STATE_CLIP[swim ? 'walk' : st]);
     }
     this.health = Math.min(100, this.health + dt * 0.5);
     if (this.health <= 0) { this.health = 100; this.cb.onDeath(); this.pos.set(-280 + 40, 0.2, -280 + 76); this.vy = 0; if (this.mission) { this.cb.onToast('Mission failed'); this.cancelMission(); } }
@@ -464,11 +461,11 @@ export class Game {
     const v = this.current; const at = v ? v.pos : this.pos;
     this.zone = this.world.zoneAt(at.x, at.z);
     const swim = !v && inWater(this.pos.x, this.pos.z) && this.pos.y < -0.8;
-    const mode: HudState['mode'] = v ? (v.def.type === 'bike' ? 'bike' : 'drive') : swim ? 'swim' : (Math.abs(this.pos.x) > HALF + 20 || Math.abs(this.pos.z) > HALF + 20) ? 'hike' : input.run && (Math.abs(input.mx) + Math.abs(input.my) > 0.3) ? 'run' : 'walk';
+    const mode: HudState['mode'] = v ? (v.def.type === 'bike' ? 'bike' : 'drive') : swim ? 'swim' : (Math.abs(this.pos.x) > HALF + 20 || Math.abs(this.pos.z) > HALF + 20) ? 'hike' : input.run && (Math.abs(input.mx) + Math.abs(input.my) > 0.05) ? 'run' : 'walk';
     let prompt = ''; if (!v) { const n = this.nearestVehicle(); if (n) prompt = n.damage >= 100 ? `${n.def.name} (wrecked)` : `Enter ${n.def.name}`; } else prompt = 'Exit vehicle';
     let mission: HudState['mission'] = null;
     if (this.mission) { const [px, pz] = this.mission.def.points[this.mission.idx]; mission = { name: this.mission.def.name, step: this.mission.idx + 1, total: this.mission.def.points.length, timeLeft: this.mission.timeLeft, dist: Math.round(Math.hypot(at.x - px, at.z - pz)) }; }
-    this.cb.onHud({ mode, health: Math.max(0, this.health), stamina: this.stamina, speed: v ? Math.abs(v.speed) * 3.6 : 0, vehicleName: v?.def.name || '', damage: v?.damage || 0, lights: !!v?.lights, time: this.time, weather: this.weather, zone: this.zone, prompt, mission, fps: this.fps, crouch: input.crouch, camMode: this.camMode, money: this.profile.money, weapon: this.weapons.id });
+    this.cb.onHud({ mode, health: Math.max(0, this.health), stamina: this.stamina, speed: v ? Math.abs(v.speed) * 3.6 : 0, vehicleName: v?.def.name || '', damage: v?.damage || 0, lights: !!v?.lights, time: this.time, weather: this.weather, zone: this.zone, prompt, mission, fps: this.fps, crouch: input.crouch, camMode: this.camMode, money: this.profile.money, weapon: this.weapons.id, run: input.run });
   }
 
   drawMinimap() {
