@@ -385,7 +385,6 @@ export class Game {
 
   night() { const dist = Math.min(this.time, 24 - this.time); return Math.max(0, Math.min(1, 1 - (dist - 1) / 0.5)); } // full night 23:00-01:00 (~5 min), fades in/out
   updateEnvironment(dt: number) {
-    const s = this.profile.settings;
     this.time = (this.time + dt * 24 / (DAY_MIN * 60)) % 24;
     // weather state machine
     this.weatherT -= dt; if (this.weatherT < 0) { const opts = ['clear', 'clear', 'cloudy', 'rain', 'fog']; this.weather = opts[Math.floor(Math.random() * opts.length)]; this.weatherT = 90 + Math.random() * 120; this.cb.onToast(`Weather: ${this.weather}`); }
