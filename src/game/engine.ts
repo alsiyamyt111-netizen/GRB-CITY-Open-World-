@@ -2,17 +2,18 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { buildWorld, heightAt, inWater, WORLD, type Box, type WorldBuild } from './world';
+import { WeaponHolder, WEAPONS, isWeaponId, type WeaponId } from './weapons';
 import { makeHuman, animateHuman, makeVehicle, loadCharacter, setCharState, type Human, type VehicleMesh, type AnimChar } from './models';
 import { VEHICLES, MISSIONS, VIEWPOINTS, HALF, BLOCK, N, CHARACTERS, ANIM_FILES, type VehicleDef, type MissionDef } from './data';
 import { addXp, type Profile, type Settings } from './store';
 import { tex } from './textures';
 import { audio } from './audio';
 
-export const input = { mx: 0, my: 0, run: false, crouch: false, jump: false, lookDx: 0, lookDy: 0, steer: 0, gas: false, brake: false, handbrake: false, action: false };
+export const input = { mx: 0, my: 0, run: false, crouch: false, jump: false, lookDx: 0, lookDy: 0, steer: 0, gas: false, brake: false, handbrake: false, action: false, prone: false };
 
 export interface HudState {
   mode: 'walk' | 'run' | 'drive' | 'bike' | 'hike' | 'swim'; health: number; stamina: number; speed: number; vehicleName: string; damage: number; lights: boolean;
-  time: number; weather: string; zone: string; prompt: string; mission: null | { name: string; step: number; total: number; timeLeft?: number; dist: number }; fps: number; crouch: boolean; camMode: number; money: number;
+  time: number; weather: string; zone: string; prompt: string; mission: null | { name: string; step: number; total: number; timeLeft?: number; dist: number }; fps: number; crouch: boolean; camMode: number; money: number; weapon: WeaponId;
 }
 interface Veh { def: VehicleDef; m: VehicleMesh; pos: THREE.Vector3; heading: number; speed: number; steer: number; damage: number; ai: boolean; parked: boolean; driver?: Human; from: [number, number]; to: [number, number]; owned?: boolean; lights: boolean; prevPos: THREE.Vector3 }
 interface Ped { h: Human; pos: THREE.Vector3; from: [number, number]; to: [number, number]; speed: number; fallen: number; heading: number }
@@ -23,7 +24,7 @@ const PRESETS = {
   high: { pr: 1.5, shadows: true, smap: 2048, draw: 620, traffic: 20, peds: 26, q: 2 },
   ultra: { pr: 2, shadows: true, smap: 4096, draw: 900, traffic: 26, peds: 34, q: 2 },
 };
-const STATE_CLIP: Record<string, string> = { idle: 'Idle', walk: 'Walk', run: 'Run', jump: 'Jump', crouch: 'Crouch' };
+const STATE_CLIP: Record<string, string> = { idle: 'Idle', walk: 'Walk', run: 'Run', jump: 'Jump', crouch: 'Crouch', prone: 'Prone' };
 const nodePos = (i: number, j: number) => new THREE.Vector3(-HALF + i * BLOCK, 0, -HALF + j * BLOCK);
 const fwd = (h: number) => new THREE.Vector3(Math.sin(h), 0, Math.cos(h));
 const right = (h: number) => new THREE.Vector3(-Math.cos(h), 0, Math.sin(h));
@@ -38,7 +39,7 @@ export class Game {
   sun = new THREE.DirectionalLight('#fff', 3); hemi = new THREE.HemisphereLight('#bcd8ff', '#4a4030', 1);
   sky = new Sky(); pmrem: THREE.PMREMGenerator; envRT?: THREE.WebGLRenderTarget; lastEnvTime = -99;
   world!: WorldBuild; grid = new Map<string, Box[]>();
-  player!: AnimChar; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0;
+  player!: AnimChar; weapons!: WeaponHolder; aim = false; baseFov = 60; pos = new THREE.Vector3(9.5, 0.2, 40); vy = 0; yaw = Math.PI; onGround = true; health = 100; stamina = 100; punchT = 0;
   camYaw = Math.PI; camPitch = 0.25; camMode = 0; camPos = new THREE.Vector3();
   vehicles: Veh[] = []; peds: Ped[] = []; current: Veh | null = null;
   time = 9; weather = 'clear'; weatherT = 120; cloud = 0; rain = 0; fogK = 0; rainPts!: THREE.Points; clouds: THREE.Sprite[] = []; stars!: THREE.Points;
@@ -70,6 +71,7 @@ export class Game {
     progress(0.82, 'Spawning characters…'); await new Promise(r => setTimeout(r, 0));
     const charDef = CHARACTERS.find(c => c.id === this.profile.charId) || CHARACTERS[0];
     this.player = await loadCharacter(charDef.file, ANIM_FILES, 1.78); S.add(this.player.group);
+    this.weapons = new WeaponHolder(this.player); this.weapons.equip(isWeaponId(this.profile.weapon) ? this.profile.weapon : 'fist'); this.baseFov = this.camera.fov;
     if (this.profile.savedPos) { this.pos.set(this.profile.savedPos.x, 0, this.profile.savedPos.z); this.time = this.profile.savedPos.time; }
     // parked vehicles
     for (const sp of this.world.parkedSpots) this.spawnVehicle(VEHICLES.find(v => v.id === sp.vid)!, sp.x, sp.z, sp.rot, false);
@@ -192,9 +194,26 @@ export class Game {
   }
   action() {
     if (this.current) { audio.horn(); this.peds.forEach(p => { if (p.pos.distanceTo(this.current!.pos) < 15) p.speed = 2.6; }); return; }
+    const w = WEAPONS[this.weapons.id];
+    if (w.kind === 'gun') { this.weapons.fire(); audio.blip(w.id === 'sniper' ? 90 : w.id === 'pistol' ? 220 : 160, 0.07, 'square', 0.12); audio.blip(60, 0.1, 'sawtooth', 0.08); return; } // show only: flash + recoil, no bullets
     if (this.punchT <= 0) { this.punchT = 0.6; setCharState(this.player, 'Punch', 0.05); }
+    if (w.kind === 'throw') { this.weapons.fire(); audio.blip(320, 0.2, 'sine', 0.08); return; } // throw gesture only
     audio.blip(150, 0.08, 'square', 0.1);
-    for (const p of this.peds) if (!p.fallen && p.pos.distanceTo(this.pos) < 1.8) { p.fallen = 6; audio.blip(90, 0.15, 'sawtooth'); }
+    if (w.id === 'fist') for (const p of this.peds) if (!p.fallen && p.pos.distanceTo(this.pos) < 1.8) { p.fallen = 6; audio.blip(90, 0.15, 'sawtooth'); }
+  }
+  /** Equip a weapon (not while in a vehicle). Persisted in the profile. */
+  equip(id: WeaponId) {
+    if (this.current) { this.cb.onToast('Get out of the vehicle first'); return; }
+    this.weapons.equip(id); this.profile.weapon = id; audio.click(); this.cb.onSave();
+  }
+  setAim(on: boolean) { this.aim = on; }
+  /** Grenade button: throw one, then switch back to what was in hand. */
+  quickThrow() {
+    if (this.current) return;
+    const prev = this.weapons.id;
+    if (prev !== 'grenade') this.weapons.equip('grenade');
+    this.action();
+    if (prev !== 'grenade') setTimeout(() => { if (this.weapons.id === 'grenade') this.weapons.equip(prev); }, 900);
   }
   toggleLights() { if (!this.current) return; this.current.lights = !this.current.lights; audio.click(); }
   horn() { audio.horn(); }
@@ -215,6 +234,7 @@ export class Game {
     if (this.paused) return;
     if (this.current) this.updateDriving(dt); else this.updateOnFoot(dt);
     this.player.mixer.update(dt);
+    this.weapons.update(dt, this.aim && !this.current, !this.current);
     this.updateTraffic(dt); this.updatePeds(dt); this.updateEnvironment(dt); this.updateCamera(dt); this.updateMission(dt);
     this.lodT -= dt; if (this.lodT < 0) { this.lodT = 0.5; const d2 = this.preset.draw ** 2; for (const g of this.world.cullables) g.visible = g.userData.center.distanceToSquared(this.camera.position) < d2; }
     this.saveT += dt; if (this.saveT > 30) { this.saveT = 0; this.snapshot(); this.cb.onSave(); }
@@ -228,8 +248,8 @@ export class Game {
     this.camYaw -= input.lookDx * 0.005 * sens; this.camPitch = Math.max(-0.35, Math.min(1.1, this.camPitch + input.lookDy * 0.004 * sens)); input.lookDx = input.lookDy = 0;
     const swim = inWater(this.pos.x, this.pos.z) && this.pos.y < -0.8;
     let mx = input.mx, my = input.my; const mag = Math.min(1, Math.hypot(mx, my));
-    const running = input.run && mag > 0.3 && this.stamina > 1 && !input.crouch && !swim;
-    const speed = swim ? 2.2 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
+    const running = input.run && mag > 0.3 && this.stamina > 1 && !input.crouch && !input.prone && !swim;
+    const speed = swim ? 2.2 : input.prone ? 0.9 : input.crouch ? 1.8 : running ? 7.5 : 3.2;
     if (mag > 0.05) {
       const ang = this.camYaw - Math.atan2(mx, my); const targetYaw = ang;
       let d = targetYaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += d * Math.min(1, dt * 12);
@@ -247,7 +267,7 @@ export class Game {
     if (running) this.stamina = Math.max(0, this.stamina - dt * 14); else this.stamina = Math.min(100, this.stamina + dt * (mag > 0.05 ? 8 : 16));
     // jump & gravity
     const g = swim ? -1.3 : groundAt(this.pos.x, this.pos.z);
-    if (input.jump && this.onGround && !swim && this.stamina > 8) { this.vy = 8.5; this.onGround = false; this.stamina -= 8; }
+    if (input.jump && this.onGround && !swim && !input.prone && this.stamina > 8) { this.vy = 8.5; this.onGround = false; this.stamina -= 8; }
     input.jump = false;
     this.vy -= 24 * dt; this.pos.y += this.vy * dt;
     if (this.pos.y <= g) { if (!this.onGround && this.vy < -16) { const dmg = (-this.vy - 16) * 6; this.health -= dmg; this.cb.onToast('Ouch! Fall damage'); } this.pos.y = g; this.vy = 0; this.onGround = true; }
@@ -257,7 +277,7 @@ export class Game {
     if (swim) P.group.position.y -= 0.7;
     if (this.punchT > 0) this.punchT -= dt;
     else {
-      const st = !this.onGround ? 'jump' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle';
+      const st = !this.onGround ? 'jump' : input.prone ? 'prone' : input.crouch ? 'crouch' : mag > 0.05 ? (running ? 'run' : 'walk') : 'idle';
       setCharState(P, STATE_CLIP[swim ? 'walk' : st]);
     }
     this.health = Math.min(100, this.health + dt * 0.5);
@@ -399,10 +419,10 @@ export class Game {
   }
 
   updateCamera(dt: number) {
-    const tgt = this.current ? this.current.pos.clone().add(new THREE.Vector3(0, this.current.def.hgt * 0.8 + 0.6, 0)) : this.pos.clone().add(new THREE.Vector3(0, input.crouch ? 1.1 : 1.55, 0));
+    const tgt = this.current ? this.current.pos.clone().add(new THREE.Vector3(0, this.current.def.hgt * 0.8 + 0.6, 0)) : this.pos.clone().add(new THREE.Vector3(0, input.prone ? 0.65 : input.crouch ? 1.1 : 1.55, 0));
     if (this.current) { const dh = Math.atan2(Math.sin(this.current.heading - this.camYaw), Math.cos(this.current.heading - this.camYaw)); if (Math.abs(this.current.speed) > 2) this.camYaw += dh * Math.min(1, dt * 2.5); }
     const big = this.current ? this.current.def.len : 0;
-    const dist = this.camMode === 2 ? 0.01 : (this.camMode === 0 ? 4.2 : 7.5) + big * 0.9;
+    const dist = this.camMode === 2 ? 0.01 : (this.camMode === 0 ? (this.aim && !this.current ? 2.9 : 4.2) : 7.5) + big * 0.9;
     if (this.camMode === 2) { // first person / hood cam
       const f = fwd(this.current ? this.current.heading : this.camYaw);
       const p = tgt.clone().addScaledVector(f, this.current ? this.current.def.len * 0.1 : 0.25); this.camera.position.copy(p);
@@ -413,7 +433,8 @@ export class Game {
     const want = tgt.clone().add(off); const gy = groundAt(want.x, want.z) + 0.4; if (want.y < gy) want.y = gy;
     this.camPos.lerp(want, this.camPos.lengthSq() === 0 ? 1 : Math.min(1, dt * 10)); this.camera.position.copy(this.camPos);
     this.camera.lookAt(tgt);
-    if (this.current) { const fov = 62 + Math.min(14, Math.abs(this.current.speed) * 0.25); this.camera.fov += (fov - this.camera.fov) * dt * 3; this.camera.updateProjectionMatrix(); }
+    const fov = this.current ? 62 + Math.min(14, Math.abs(this.current.speed) * 0.25) : this.aim ? this.baseFov * 0.72 : this.baseFov;
+    if (Math.abs(fov - this.camera.fov) > 0.01) { this.camera.fov += (fov - this.camera.fov) * Math.min(1, dt * 6); this.camera.updateProjectionMatrix(); }
   }
 
   updateMission(dt: number) {
@@ -443,7 +464,7 @@ export class Game {
     let prompt = ''; if (!v) { const n = this.nearestVehicle(); if (n) prompt = n.damage >= 100 ? `${n.def.name} (wrecked)` : `Enter ${n.def.name}`; } else prompt = 'Exit vehicle';
     let mission: HudState['mission'] = null;
     if (this.mission) { const [px, pz] = this.mission.def.points[this.mission.idx]; mission = { name: this.mission.def.name, step: this.mission.idx + 1, total: this.mission.def.points.length, timeLeft: this.mission.timeLeft, dist: Math.round(Math.hypot(at.x - px, at.z - pz)) }; }
-    this.cb.onHud({ mode, health: Math.max(0, this.health), stamina: this.stamina, speed: v ? Math.abs(v.speed) * 3.6 : 0, vehicleName: v?.def.name || '', damage: v?.damage || 0, lights: !!v?.lights, time: this.time, weather: this.weather, zone: this.zone, prompt, mission, fps: this.fps, crouch: input.crouch, camMode: this.camMode, money: this.profile.money });
+    this.cb.onHud({ mode, health: Math.max(0, this.health), stamina: this.stamina, speed: v ? Math.abs(v.speed) * 3.6 : 0, vehicleName: v?.def.name || '', damage: v?.damage || 0, lights: !!v?.lights, time: this.time, weather: this.weather, zone: this.zone, prompt, mission, fps: this.fps, crouch: input.crouch, camMode: this.camMode, money: this.profile.money, weapon: this.weapons.id });
   }
 
   drawMinimap() {

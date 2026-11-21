@@ -2,21 +2,22 @@
 import { CHARACTERS } from './data';
 
 export type Preset = 'low' | 'medium' | 'high' | 'ultra';
-export interface Settings { preset: Preset; sfx: number; ambient: number; sensitivity: number; showFps: boolean; dayLength: number; vibrate: boolean }
+export interface HudItem { x: number; y: number; s: number; hidden: boolean } // x,y = centre as a 0..1 fraction of the screen, s = scale
+export interface Settings { preset: Preset; sfx: number; ambient: number; sensitivity: number; showFps: boolean; dayLength: number; vibrate: boolean; hud: Record<string, Partial<HudItem>> } // hud = only the elements the player changed
 export interface Custom { skin: string; shirt: string; pants: string; hair: string; hat: boolean }
 export interface Profile {
   name: string; money: number; gems: number; xp: number; level: number;
   charId: string; custom: Record<string, Custom>;
   owned: string[]; selectedVehicle: string; vehicleDamage: Record<string, number>; vehicleColor: Record<string, string>;
   completed: string[]; viewpoints: number[]; medkits: number; energy: number;
-  settings: Settings; savedPos?: { x: number; z: number; time: number };
+  settings: Settings; savedPos?: { x: number; z: number; time: number }; weapon: string;
 }
 
 const KEY = 'richcity_save_v1';
-export const defaultSettings: Settings = { preset: 'medium', sfx: 0.7, ambient: 0.5, sensitivity: 1, showFps: false, dayLength: 8, vibrate: true };
+export const defaultSettings: Settings = { preset: 'medium', sfx: 0.7, ambient: 0.5, sensitivity: 1, showFps: false, dayLength: 8, vibrate: true, hud: {} };
 
 export function newProfile(): Profile {
-  return { name: 'Player', money: 10000, gems: 50, xp: 0, level: 1, charId: CHARACTERS[0].id, custom: {}, owned: ['sedan', 'bike'], selectedVehicle: 'sedan', vehicleDamage: {}, vehicleColor: {}, completed: [], viewpoints: [], medkits: 1, energy: 1, settings: { ...defaultSettings } };
+  return { name: 'Player', money: 10000, gems: 50, xp: 0, level: 1, charId: CHARACTERS[0].id, custom: {}, owned: ['sedan', 'bike'], selectedVehicle: 'sedan', vehicleDamage: {}, vehicleColor: {}, completed: [], viewpoints: [], medkits: 1, energy: 1, settings: { ...defaultSettings, hud: {} }, weapon: 'fist' };
 }
 
 export function loadProfile(): Profile {
