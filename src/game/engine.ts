@@ -71,7 +71,8 @@ export class Game {
     progress(0.82, 'Spawning characters…'); await new Promise(r => setTimeout(r, 0));
     const charDef = CHARACTERS.find(c => c.id === this.profile.charId) || CHARACTERS[0];
     this.player = await loadCharacter(charDef.file, ANIM_FILES, 1.78); S.add(this.player.group);
-    this.weapons = new WeaponHolder(this.player); this.weapons.equip(isWeaponId(this.profile.weapon) ? this.profile.weapon : 'fist'); this.baseFov = this.camera.fov;
+    this.weapons = new WeaponHolder(this.player);
+    this.weapons.equip(isWeaponId(this.profile.weapon) ? this.profile.weapon : 'fist'); this.baseFov = this.camera.fov;
     if (this.profile.savedPos) { this.pos.set(this.profile.savedPos.x, 0, this.profile.savedPos.z); this.time = this.profile.savedPos.time; }
     // parked vehicles
     for (const sp of this.world.parkedSpots) this.spawnVehicle(VEHICLES.find(v => v.id === sp.vid)!, sp.x, sp.z, sp.rot, false);

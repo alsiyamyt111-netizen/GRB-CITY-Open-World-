@@ -97,6 +97,7 @@ export class WeaponHolder {
     this.rArm = bones.get('RightArm') ?? null; this.lArm = bones.get('LeftArm') ?? null;
     for (const id of Object.keys(WEAPONS) as WeaponId[]) { const g = buildWeapon(id); if (g) { g.visible = false; this.root.add(g); this.groups.set(id, g); } }
     if (!hand) { console.warn('[weapons] RightHand bone not found — weapons disabled'); return; }
+    try {
 
     // Calibrate against the relaxed Idle pose: the weapon is oriented as if the character stands
     // facing +Z with the hand hanging down (barrel forward, top up), regardless of the bone's own axes.
@@ -110,6 +111,7 @@ export class WeaponHolder {
     const mid = bones.get('RightHandMiddle1'); if (mid) this.root.position.copy(mid.position).multiplyScalar(0.5); // palm centre
     idle?.stop();
     hand.add(this.root); this.attached = true;
+    } catch (e) { console.warn('[weapons] setup failed — weapons disabled', e); }
   }
 
   equip(id: WeaponId) {

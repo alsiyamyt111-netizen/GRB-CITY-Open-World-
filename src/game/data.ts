@@ -16,22 +16,22 @@ export const SPECIAL_BLOCKS: Record<string, Special> = {
 
 export interface CharacterDef { id: string; name: string; female: boolean; skin: string; shirt: string; pants: string; hair: string; bio: string; file: string }
 export const CHARACTERS: CharacterDef[] = [
-  { id: 'rafi', name: 'Rafi Khan', female: false, skin: '#c68a5e', shirt: '#151515', pants: '#1c1c22', hair: '#120c08', bio: 'Street-smart hustler', file: BASE + 'models/characters/x_boy.glb' },
-  { id: 'arif', name: 'Arif Hasan', female: false, skin: '#a8724a', shirt: '#e8e8ea', pants: '#2a3550', hair: '#1a120a', bio: 'Tech entrepreneur', file: BASE + 'models/characters/bc2.glb' },
-  { id: 'tanvir', name: 'Tanvir Ali', female: false, skin: '#8d5a3a', shirt: '#b3202a', pants: '#222', hair: '#0a0a0a', bio: 'Racing enthusiast', file: BASE + 'models/characters/bc3.glb' },
-  { id: 'sami', name: 'Sami Roy', female: false, skin: '#d9a47a', shirt: '#1f6fd1', pants: '#3a3a3a', hair: '#3b2414', bio: 'Beach-side cool', file: BASE + 'models/characters/bc4.glb' },
-  { id: 'nadia', name: 'Nadia Rahman', female: true, skin: '#d29b74', shirt: '#e0338a', pants: '#e8e8f0', hair: '#1a0f08', bio: 'Fashion influencer', file: BASE + 'models/characters/Y_girl.glb' },
-  { id: 'mim', name: 'Mim Akter', female: true, skin: '#c18560', shirt: '#f2f2f2', pants: '#3b4a6b', hair: '#2b1a10', bio: 'Medical student', file: BASE + 'models/characters/gc2.glb' },
-  { id: 'riya', name: 'Riya Sen', female: true, skin: '#e0b090', shirt: '#c41a1a', pants: '#111', hair: '#4a2a15', bio: 'Thrill seeker', file: BASE + 'models/characters/gc3.glb' },
-  { id: 'sara', name: 'Sara Islam', female: true, skin: '#9c6644', shirt: '#1d1d1d', pants: '#242424', hair: '#0d0806', bio: 'Undercover detective', file: BASE + 'models/characters/gc4.glb' },
+  { id: 'rafi', name: 'Rafi Khan', female: false, skin: '#c68a5e', shirt: '#151515', pants: '#1c1c22', hair: '#120c08', bio: 'Street-smart hustler', file: BASE + 'models/Characters/x_boy.glb' },
+  { id: 'arif', name: 'Arif Hasan', female: false, skin: '#a8724a', shirt: '#e8e8ea', pants: '#2a3550', hair: '#1a120a', bio: 'Tech entrepreneur', file: BASE + 'models/Characters/bc2.glb' },
+  { id: 'tanvir', name: 'Tanvir Ali', female: false, skin: '#8d5a3a', shirt: '#b3202a', pants: '#222', hair: '#0a0a0a', bio: 'Racing enthusiast', file: BASE + 'models/Characters/bc3.glb' },
+  { id: 'sami', name: 'Sami Roy', female: false, skin: '#d9a47a', shirt: '#1f6fd1', pants: '#3a3a3a', hair: '#3b2414', bio: 'Beach-side cool', file: BASE + 'models/Characters/bc4.glb' },
+  { id: 'nadia', name: 'Nadia Rahman', female: true, skin: '#d29b74', shirt: '#e0338a', pants: '#e8e8f0', hair: '#1a0f08', bio: 'Fashion influencer', file: BASE + 'models/Characters/Y_girl.glb' },
+  { id: 'mim', name: 'Mim Akter', female: true, skin: '#c18560', shirt: '#f2f2f2', pants: '#3b4a6b', hair: '#2b1a10', bio: 'Medical student', file: BASE + 'models/Characters/gc2.glb' },
+  { id: 'riya', name: 'Riya Sen', female: true, skin: '#e0b090', shirt: '#c41a1a', pants: '#111', hair: '#4a2a15', bio: 'Thrill seeker', file: BASE + 'models/Characters/gc3.glb' },
+  { id: 'sara', name: 'Sara Islam', female: true, skin: '#9c6644', shirt: '#1d1d1d', pants: '#242424', hair: '#0d0806', bio: 'Undercover detective', file: BASE + 'models/Characters/gc4.glb' },
 ];
 
 // Mixamo animation clips shared by every character body above (see game/models.ts loadCharacter/setCharState)
 export const ANIM_FILES: Record<string, string> = {
-  Idle: BASE + 'models/anims/Idle.fbx', Walk: BASE + 'models/anims/Walk.fbx', Run: BASE + 'models/anims/Run.fbx',
-  Jump: BASE + 'models/anims/jump.fbx', Crouch: BASE + 'models/anims/crouch.fbx', Prone: BASE + 'models/anims/prone.fbx',
-  Death: BASE + 'models/anims/death.fbx', Kick: BASE + 'models/anims/kick.fbx', Punch: BASE + 'models/anims/punch.fbx',
-  Getup: BASE + 'models/anims/Getup.fbx', StandToSit: BASE + 'models/anims/standtosit.fbx', SitToStand: BASE + 'models/anims/sittostand.fbx',
+  Idle: BASE + 'models/Anims/Idle.fbx', Walk: BASE + 'models/Anims/Walk.fbx', Run: BASE + 'models/Anims/Run.fbx',
+  Jump: BASE + 'models/Anims/jump.fbx', Crouch: BASE + 'models/Anims/crouch.fbx', Prone: BASE + 'models/Anims/prone.fbx',
+  Death: BASE + 'models/Anims/death.fbx', Kick: BASE + 'models/Anims/kick.fbx', Punch: BASE + 'models/Anims/punch.fbx',
+  Getup: BASE + 'models/Anims/Getup.fbx', StandToSit: BASE + 'models/Anims/standtosit.fbx', SitToStand: BASE + 'models/Anims/sittostand.fbx',
 };
 
 export type VType = 'sports' | 'car' | 'bike' | 'bus' | 'truck' | 'ambulance' | 'police';
