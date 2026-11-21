@@ -21,7 +21,7 @@ export function Gameplay(props: SP & { missionId: string | null; clearMission: (
     audio.init(); Object.assign(input, { mx: 0, my: 0, run: false, crouch: false, prone: false, jump: false, steer: 0, gas: false, brake: false, handbrake: false });
     const g = new Game(mount.current!, profile, { onHud: setHud, onToast: pushToast, onMissionDone: (name, reward) => { setDone({ name, reward }); update(() => { }); }, onDeath: () => { pushToast('WASTED – respawned at hospital (-$200)'); update(p => { p.money = Math.max(0, p.money - 200); }); }, onSave: () => update(() => { }) });
     gameRef.current = g; let alive = true;
-    g.init((p, msg) => alive && setLoad({ p, msg })).then(() => { if (!alive) return; g.minimap = mini.current; if (props.missionId) { g.startMission(props.missionId); props.clearMission(); } g.start(); setReady(true); });
+    g.init((p, msg) => alive && setLoad({ p, msg })).then(() => { if (!alive) return; g.minimap = mini.current; if (props.missionId) { g.startMission(props.missionId); props.clearMission(); } g.start(); setReady(true); }).catch(e => { console.error(e); alive && setLoad(l => ({ p: l.p, msg: 'ERROR: ' + (e?.message || e) + ' (at: ' + l.msg + ')' })); });
     const key = (e: KeyboardEvent, d: boolean) => {
       const k = e.key.toLowerCase(); const drive = !!g.current;
       if (k === 'w' || k === 'arrowup') { input.my = d ? 1 : 0; } if (k === 's' || k === 'arrowdown') { input.my = d ? -1 : 0; }

@@ -52,7 +52,7 @@ export function Preview3D({ look, charFile, vehicle, color, className = '', bg =
     let anim: Awaited<ReturnType<typeof loadCharacter>> | null = null; let cancelled = false;
     if (charFile) {
       cam.position.set(0, 1.2, 4.3); cam.lookAt(0, 0.9, 0);
-      loadCharacter(charFile, { Idle: import.meta.env.BASE_URL + 'models/anims/Idle.fbx' }, 1.78).then(ch => {
+      loadCharacter(charFile, { Idle: import.meta.env.BASE_URL + 'models/Anims/Idle.fbx' }, 1.78).then(ch => {
         if (cancelled) return; anim = ch; root.add(ch.group); setCharState(ch, 'Idle', 0);
       }).catch(e => console.warn('[Preview3D] character load failed', e));
     } else if (look) { human = makeHuman(look); root.add(human.group); cam.position.set(0, 1.3, 4.6); cam.lookAt(0, 0.95, 0); }
